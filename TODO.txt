@@ -1,0 +1,152 @@
+GENERAL
+=======
+
+* show progress (percentage of what is parsed, sort progress, ...)
+
+
+ROUTING
+=======
+
+* optimized routing graph (highway/routing): more compact, improve
+  data locality
+
+* more efficient routing algorithm (osm/routing.ml)
+
+* should try removing nodes with two edges or less to get a smaller
+  routing graph (something like 80% of nodes have only two edges)
+
+* turn restrictions
+
+DATABASE
+========
+
+Important Features
+------------------
+
+* might be convenient to be able to write "rules" to recompute some
+  columns only if the columns it depend on have changed
+
+* automatically size memory used when sorting depending on available
+  memory
+
+Features
+--------
+
+* when we want to filter some fields or remove duplicates (for instance),
+  we currently have to build a new table; it might be more efficent to
+  be able to combine this with streaming
+
+* it might be interesting to keep track of whether a column is sorted,
+  or whether its elements are unique (and check whether this is the case)
+
+* debugging options: debug output, ...
+
+Performance
+-----------
+
+*** We should perform readahead
+
+*** sorting
+  - parallelize in-memory phases
+  - optimized merge sort
+
+* radix sort to reorder columns, to compose columns when one of the
+  columns has unique values
+
+* map files several times with different policies (READAHEAD, ...) ?
+  ===> or use read/write rather than mmap?
+  (it is not clear that mmap is the most efficient API in our case)
+
+* take into account available memory for sorting
+  ===> adapt to machines with large memories
+  ===> it can be interesting to sort smaller chunks if the
+       intermediate results can then fit in memory
+  ===> keep enough memory to read in advance? to have enough memory to
+       buffer the writes
+
+* dummy output columns (e.g when we need only one of the columns of a
+  join, there is no point in writing the other to the disk as well)
+
+* merge sort optimizations:
+  - use cmov instructions (avoid branches when merging)
+  - we known which stream will end first (end with smallest element),
+    hence we only have to check one
+
+----
+
+INTERESTING REFERENCES
+======================
+
+Cache-Conscious Radix-Decluster Projections ?
+Fast and compact hash tables for integer keys ?
+Reducing Seek Overhead with Application-Directed Prefetching
+Efficient implementation of sorting on multi-core SIMD CPU
+  architecture
+Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core
+  CPUs
+New algorithms for join and grouping operations
+Dictionary-based Order-preserving String Compression for Main Memory
+  Column Stores
+Fast and Compact Hash Tables for Integer Keys
+Basic External Memory Data Structures
+Implementing Sorting in Database Systems
+Buffering and read-ahead strategies for external mergesort
+Mergesort: http://www.intel.com/content/dam/www/public/us/en/documents/technology-briefs/intel-labs-closing-ninja-gap-paper.pdf
+
+I/O-efficient quadtrees
+Compact Hilbert Indices for Multi-Dimensional Data
+  http://web.cs.dal.ca/~chamilto/hilbert/index.html
+The Application of Space-filling Curves to the Storage and Retrieval
+  of Multi-dimensional Data
+Fast Hilbert Curve Generation, Sorting, and Range Queries
+Encoding and Decoding the Hilbert Order
+
+The Priority R-Tree: A Practically Efficient and Worst-Case Optimal
+  R-Tree
+On packing R-trees
+Four-Dimensional Hilbert Curves for R-Trees
+Harmonious Hilbert curves and other extradimensional space-filling
+  curves
+Speeding Up Construction of Quadtrees for Spatial Indexing
+Fast construction of k -Nearest Neighbor Graphs for Point Clouds
+Client-server Paradise
+???R-trees Have Grown Everywhere
+???Oversize Shelves: A Storage Management Technique for Large Spatial
+  Data Objects.
+???Post-optimization and incremental refinement of r-trees
+
+Mobile Route Planning
+An Experimental Analysis of a Compact Graph Representation
+A fast and high quality multilevel scheme for partitioning irregular graphs
+GraphChi: Large-Scale Graph Computation on Just a PC
+Implementations of Dijkstra's Algorithm Based on Multi-Level Buckets
+??? Graph clustering, Satu Elisa Schaeffer
+Clustering Techniques for Minimizing External Path Length
+??? Engineering a Topological Sorting Algorithm for Massive Graphs
+
+Route Planning in Road Networks with Turn Costs
+Parallel Time-Dependent Contraction Hierarchies
+Contraction Hierarchies: Faster and Simpler Hierarchical Routing in
+  Road Networks
+Doing More for Less – Cache-Aware Parallel Contraction Hierarchies
+  Preprocessing
+Real-Time Routing with OpenStreetMap data
+Polynomial-time Construction of Contraction Hierarchies
+  for Multi-criteria Objectives
+Route planning with flexible edge restrictions
+Route planning with flexible objective functions
+
+Efficient Spatial Sampling of Large Geographical Tables
+
+http://code.google.com/p/monav/wiki/UnicodeTournamentTrie
+
+Rendering:
+https://github.com/migurski/HighRoad
+http://www.mapbox.com/blog/designing-minimalist-openstreetmap-baselayer/
+http://developmentseed.org/blog/2010/mar/23/speeding-openstreetmap-based-map-development-osm-bright-template/
+http://wiki.openstreetmap.org/wiki/Overpass_turbo/Polygon_Features
+http://wiki.openstreetmap.org/wiki/Relation:multipolygon/Algorithm
+http://www.mapbox.com/maki/
+
+Simultaneous & topologically-safe line simplification for a
+variable-scale planar partition

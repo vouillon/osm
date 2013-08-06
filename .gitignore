@@ -1,0 +1,13 @@
+*~
+
+*.o
+*.cm[ix]
+
+contraction
+display
+highway
+linear
+load
+multipolygons
+query
+surfaces
