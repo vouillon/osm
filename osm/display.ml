@@ -820,10 +820,24 @@ end;
               end;
               count := !count + len;
               let coeff = scale /. 10_000_000. in
-              Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
-              for k = 1 to len - 1 do
-                Cairo.line_to ctx (x.(k) *. coeff) (y.(k) *. coeff)
-              done)
+              if st.level >= 15. && Array.length x > 2 then begin
+                (*XXX This could be precomputed when decoding the path *)
+                let ((x, y), (x1, y1), (x2, y2)) =
+                  Line_smoothing.perform x y in
+                let len = Array.length x in
+                Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+                for k = 1 to len - 1 do
+                  Cairo.curve_to ctx
+                    (x1.(k - 1) *. coeff) (y1.(k - 1) *. coeff)
+                    (x2.(k - 1) *. coeff) (y2.(k - 1) *. coeff)
+                    (x.(k) *. coeff) (y.(k) *. coeff)
+                done
+              end else begin
+                Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+                for k = 1 to len - 1 do
+                  Cairo.line_to ctx (x.(k) *. coeff) (y.(k) *. coeff)
+                done
+              end)
            ways
        end
      done;
@@ -1076,8 +1090,11 @@ let draw_route st ctx =
    let path =
      List.map
        (fun (lat, lon) ->
-          (float lon /. 10_000_000.,
-           Geometry.lat_to_y (float lat) /. 10_000_000.))
+          let approx x =
+            float ((x + linear_ratio / 2 - 1) / linear_ratio * linear_ratio)
+          in
+          (approx lon /. 10_000_000.,
+           Geometry.lat_to_y (approx lat) /. 10_000_000.))
        st.path
    in
    begin match path with

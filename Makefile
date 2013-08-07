@@ -57,7 +57,7 @@ highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
 contraction: $(OBJS) osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-display: $(OBJS) osm/routing.cmx osm/display.cmx
+display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/display.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 clean::
@@ -84,7 +84,7 @@ realclean:: clean
 	$(OCAMLC) -ccopt -O3 -c -ccopt "-o $@" $<
 
 depend:
-	find . -regex ".*\\.mli?" | xargs \
+	find . -regex ".*\\.mli?" | sort | xargs \
 	$(OCAMLDEP) $(DEPFLAGS) $$i \
 	> .depend
 

@@ -150,3 +150,5 @@ http://www.mapbox.com/maki/
 
 Simultaneous & topologically-safe line simplification for a
 variable-scale planar partition
+Snakes: a technique for line smoothing and displacement in map
+generalisation
