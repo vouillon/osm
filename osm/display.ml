@@ -18,29 +18,13 @@
 
 (*
 
-* Mapping category + bridge / tunnel ===> integer
-* Operation: render surfaces of these categories on this layer with
-  this function
-  ===> build index ?   (cat, layer) ==> index
-
-  ==> order by big category then layer;
-      iter on a given category;
-      split a category into layers
-
-big categories:
-- land use
-- water (not tunnel)
-- highway surfaces
-- buildings
-- water tunnels
-
 - Land use sorted by layer, then by area
 - Water
 - Highway outlines
-- Highway surfaces and buildings (sorted by layers, then buildings last)
+- Highway surfaces and buildings
+  (sorted by layers, then buildings last <- area?)
 - Underground features (water, highways)
 - Highway casing, inline sorted by layer
-
 
 What we need
 ==> Pedestrian areas above pedestrian highways except for steps
@@ -90,7 +74,7 @@ let async_zoom = true
 let async_zoom_in = true
 let async_delay = 50 (*ms*)
 
-let debug_time = false
+let debug_time = true
 
 let _ = Printexc.record_backtrace true
 
@@ -199,6 +183,25 @@ Format.eprintf "%d %d %d@." cache.size cache.hits cache.misses;
     fun i -> find cache i
 
 end
+
+(****)
+
+module Surface = Category.Make (struct
+  type t =
+    [ `Water | `Forest | `Grass | `Farmland | `Residential | `Commercial
+    | `Industrial | `Park | `Cemetery | `Parking | `Building
+    | `Highway_residential | `Highway_unclassified | `Highway_living_street
+    | `Highway_service | `Highway_pedestrian | `Highway_track
+    | `Highway_footway | `Highway_path ]
+  let list = 
+    [ `Water; `Forest; `Grass; `Farmland; `Residential; `Commercial;
+      `Industrial; `Park; `Cemetery; `Parking; `Building;
+      `Highway_residential; `Highway_unclassified; `Highway_living_street;
+      `Highway_service; `Highway_pedestrian; `Highway_track;
+      `Highway_footway; `Highway_path ]
+end)
+
+let (>>) x f = f x
 
 (****)
 
@@ -773,13 +776,40 @@ let t = Unix.gettimeofday () in
 if debug_time then
 Format.eprintf "Loading lines: %.3f@." (Unix.gettimeofday () -. t);
 
+   let module SP = Surface.Partition in
+   let partition = SP.make () in
+   let landuse =
+     SP.add_group partition
+       [`Forest; `Grass; `Farmland; `Residential; `Commercial;
+        `Industrial; `Park; `Cemetery; `Parking ]
+   in
+   let water = SP.add_group partition [`Water] in
+   let building_or_highway =
+     SP.add_group partition
+       [`Building;
+        `Highway_residential; `Highway_unclassified; `Highway_living_street;
+        `Highway_service; `Highway_pedestrian; `Highway_track;
+        `Highway_footway; `Highway_path ]
+   in
 let t = Unix.gettimeofday () in
+   let area = Array.map (fun (_, a, _, _) -> -a) surfaces in
+   let layer = Array.map (fun (l, _, _, _) -> l) surfaces in
+let surfaces' = surfaces in
+   let surfaces =
+     SP.apply partition surfaces (fun (_, _, cat, _) -> cat)
+       >> SP.order_by area
+       >> SP.order_by layer
+       >> SP.order_by_group
+       >> SP.select
+   in
+(*
    Array.sort
      (fun (l, a, _, _) (l', a', _, _) ->
         let c = compare l l' in if c <> 0 then c else - compare a a')
      surfaces;
+*)
 if debug_time then
-Format.eprintf "Sorting surfaces (%d elements): %.3f@." (Array.length surfaces) (Unix.gettimeofday () -. t);
+Format.eprintf "Sorting surfaces (%d elements): %.3f@." (Array.length surfaces') (Unix.gettimeofday () -. t);
 let t = Unix.gettimeofday () in
    let adjusted_layer (cat, lay, is_bridge, is_tunnel) =
      lay * 3 + (if is_bridge then 1 else 0)
@@ -795,7 +825,7 @@ if debug_time then
 Format.eprintf "Sorting lines (%d elements): %.3f@." (Array.length linear_features) (Unix.gettimeofday () -. t);
 if debug_time then begin
 let n = ref 0 in
-Array.iter (fun (_, _, _, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) surfaces;
+Array.iter (fun (_, _, _, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) surfaces';
 Format.eprintf "Surfaces: %d nodes@." !n;
 let n = ref 0 in
 Array.iter (fun (_, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) linear_features;
@@ -883,37 +913,38 @@ let t = Unix.gettimeofday () in
    let prev_cat = ref (-1) in
    let count = ref 0 in
    let draw_surface cat ctx =
+     let cat = Surface.of_id cat in
      begin match cat with
-       128 -> (* Water *)
+       `Water ->
      	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
-     | 160 -> (* Building *)
+     | `Building ->
      	   Cairo.set_source_rgb ctx 0.7 0.7 0.7
-     | 1 -> (* Residential *)
+     | `Residential ->
      	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
-     | 2 -> (* Forest *)
+     | `Forest ->
      	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
-     | 3 -> (* Garden / grass *)
+     | `Grass ->
      	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
-     | 4 -> (* Park / playground / zoo *)
+     | `Park ->
      	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
-     | 5 -> (* Farmland *)
+     | `Farmland ->
      	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
-     | 6 -> (* Cemetery *)
+     | `Cemetery ->
      	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
-     | 7 -> (* Commercial *)
+     | `Commercial ->
      	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
-     | 8 -> (* Industrial *)
+     | `Industrial ->
      	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
-     | 9 -> (* Parking *)
+     | `Parking ->
      	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
-     | 192 | 193 | 194 | 195 -> (* Pedestrian, ... *)
-     	   Cairo.set_source_rgba ctx 0.9 0.9 0.9 0.8
-     | 196 | 197 | 198 | 199 -> (* Residential highway, ... *)
+     | `Highway_pedestrian | `Highway_track
+     | `Highway_footway | `Highway_path ->
+     	   Cairo.set_source_rgb ctx 0.95 0.95 0.95
+     | `Highway_residential | `Highway_unclassified
+     | `Highway_living_street | `Highway_service ->
          Cairo.set_source_rgb ctx 0.8 0.8 0.8
-     | _ ->
-         assert false
      end;
-     if st.level >= 17. && cat = 160 then begin
+     if st.level >= 17. && cat = `Building then begin
    	 Cairo.set_source_rgb ctx 0.71 0.71 0.71;
        Cairo.fill_preserve ctx;
      	 Cairo.set_source_rgb ctx 0.6 0.6 0.6;
@@ -922,32 +953,41 @@ let t = Unix.gettimeofday () in
      end else
        Cairo.fill ctx
    in
-   Array.iter
-     (fun (_, area, cat, ways) ->
-if st.level >= 15.5 || area > 50_000_000 then begin
-        if (cat <> !prev_cat || !count > 10000) && !prev_cat <> -1 then begin
-	  draw_surface !prev_cat ctx;
-	  count := 0;
-          if cat >= 160 && !prev_cat < 160 then
-            draw_water_lines ()
-	end;
-        let coeff = scale /. 10_000_000. in
-	List.iter
-	  (fun (x, y) ->
-             Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
-	     for i = 1 to Array.length x - 2 do
-               Cairo.line_to ctx (x.(i) *. coeff) (y.(i) *. coeff)
-	     done;
-	     Cairo.Path.close ctx;
-	     count := !count + Array.length x)
-	  ways;
-	if cat <> !prev_cat then begin
-	  prev_cat := cat;
-end
-	end)
-     surfaces;
-   if !prev_cat <> -1 then draw_surface !prev_cat ctx;
+   let iter i =
+     SP.iter
+       (fun (_, area, cat, ways) ->
+  if (st.level >= 15.5 || area > 50_000_000)
+  (*  && ((*st.level >= 12. ||*) area > 266_710_5250(*1_000_000_000*))*)
+  then begin
+          if (cat <> !prev_cat || !count > 10000) && !prev_cat <> -1 then begin
+            draw_surface !prev_cat ctx;
+            count := 0;
+          end;
+          let coeff = scale /. 10_000_000. in
+          List.iter
+            (fun (x, y) ->
+               Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+               for i = 1 to Array.length x - 2 do
+                 Cairo.line_to ctx (x.(i) *. coeff) (y.(i) *. coeff)
+               done;
+               Cairo.Path.close ctx;
+               count := !count + Array.length x)
+            ways;
+          if cat <> !prev_cat then begin
+            prev_cat := cat;
+  end
+          end)
+       i;
+     if !prev_cat <> -1 then draw_surface !prev_cat ctx
+   in
+   surfaces >> SP.with_group landuse >> iter;
+   draw_water_lines ();
+   surfaces >> SP.with_group water >> iter;
+   surfaces >> SP.with_group building_or_highway >> iter;
+
+(*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
    if !prev_cat < 160 then draw_water_lines ();
+*)
 if debug_time then
 Format.eprintf "Drawing surfaces: %.3f@." (Unix.gettimeofday () -. t);
 
@@ -1058,10 +1098,6 @@ let t = Unix.gettimeofday () in
           cat >= 64 && (not is_tunnel || cat <> 194))
        stroke
    in
-   (* Outline *)
-   iter_linear_feature_layers
-     (fun i l is_bridge is_tunnel ->
-        if not is_tunnel then draw_casing true i l);
    (* Underground features *)
    Cairo.Group.push ctx;
    iter_linear_feature_layers
@@ -1074,11 +1110,15 @@ let t = Unix.gettimeofday () in
         end);
    Cairo.Group.pop_to_source ctx;
    Cairo.paint ~alpha:0.4 ctx;
+   (* Outline *)
+   iter_linear_feature_layers
+     (fun i l is_bridge is_tunnel ->
+        if not is_tunnel then draw_casing true i l);
    (* Casing/inline *)
    iter_linear_feature_layers
      (fun i l is_bridge is_tunnel ->
         if not is_tunnel then begin
-          draw_casing false i l; draw_inline i l
+          if is_bridge then draw_casing false i l; draw_inline i l
         end);
 if debug_time then
 Format.eprintf "Drawing lines: %.3f@." (Unix.gettimeofday () -. t)

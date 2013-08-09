@@ -79,133 +79,63 @@ let compute_order out latitude longitude =
 
 let _ = Column.set_database "/tmp/osm"
 
-let _ =
-  let t = Dictionary.load "strings" in
-  let s v = try Dictionary.find t v with Not_found -> -1 in
+module Surface = Category.Make (struct
+  type t =
+    [ `Water | `Forest | `Grass | `Farmland | `Residential | `Commercial
+    | `Industrial | `Park | `Cemetery | `Parking | `Building
+    | `Highway_residential | `Highway_unclassified | `Highway_living_street
+    | `Highway_service | `Highway_pedestrian | `Highway_track
+    | `Highway_footway | `Highway_path ]
+  let list = 
+    [ `Water; `Forest; `Grass; `Farmland; `Residential; `Commercial;
+      `Industrial; `Park; `Cemetery; `Parking; `Building;
+      `Highway_residential; `Highway_unclassified; `Highway_living_street;
+      `Highway_service; `Highway_pedestrian; `Highway_track;
+      `Highway_footway; `Highway_path ]
+end)
 
-  let _area = s"area" in
-  let _natural = s"natural" in
-  let _water = s"water" in
-  let _lake = s"lake" in
-  let _wood = s"wood" in
-  let _bay = s"bay" in
-  let _waterway = s"waterway" in
-  let _riverbank = s"riverbank" in
-  let _dock = s"dock" in
-  let _mill_pond = s"mill_pond" in
-  let _canal = s"canal" in
-  let _landuse = s"landuse" in
-  let _residential = s"residential" in
-  let _forest = s"forest" in
-  let _meadow = s"meadow" in
-  let _grass = s"grass" in
-  let _village_green = s"village_green" in
-  let _farm = s"farm" in
-  let _farmland = s"farmland" in
-  let _cemetery = s"cemetery" in
-  let _grave_yard = s"grave_yard" in
-  let _commercial = s"commercial" in
-  let _industrial = s"industrial" in
-  let _railway = s"railway" in
-  let _leisure = s"leisure" in
-  let _garden = s"garden" in
-  let _golf_course = s"golf_course" in
-  let _common = s"common" in
-  let _park = s"park" in
-  let _recreation_ground = s"recreation_ground" in
-  let _playground = s"playground" in
-  let _basin = s"basin" in
-  let _reservoir = s"reservoir" in
-  let _building = s"building" in
-  let _aeroway = s"aeroway" in
-  let _terminal = s"terminal" in
-  let _no = s"no" in
-  let _yes = s"yes" in
-  let _amenity = s"amenity" in
-  let _parking = s"parking" in
-  let _tourism = s"tourism" in
-  let _zoo = s"zoo" in
-  let _place = s"place" in
-  let _city = s"city" in
-  let _town = s"town" in
-  let _village = s"village" in
-  let _hamlet = s"hamlet" in
-  let _highway = s"highway" in
-  let highways =
-    let h = Hashtbl.create 32 in
-    List.iter (fun (value, cat) -> Hashtbl.add h (s value) (cat + 192))
-      [("residential", 7); ("unclassified", 6); ("living_street", 5);
-       ("service", 4); ("pedestrian", 3); ("track", 2); ("footway",1);
-       ("path", 0)];
-    h
-  in
-  let classify all k v =
-    if k = _natural then begin
-      if v = _water || v = _lake || v = _bay then
-	128
-      else if v = _wood then
-	2
-      else
-	1000
-    end else if
-      (k = _waterway &&
-       (v = _riverbank || v = _dock || v = _mill_pond || v = _canal))
-    then
-      128
-    else if k = _landuse then begin
-      if v = _residential then
-	1
-      else if v = _forest || v = _wood then
-	2
-      else if v = _grass || v = _meadow then
-	3
-      else if v = _village_green then
-        4
-      else if v = _basin || v = _reservoir || v = _water then
-	128
-      else if v = _farm || v = _farmland then
-	5
-      else if v = _cemetery || v = _grave_yard then
-	6
-      else if v = _commercial then
-	7
-      else if v = _industrial || v = _railway then
-	8
-      else
-	1000
-    end else if k = _leisure then begin
-      if v = _garden || v = _common || v = _golf_course then
-        3
-      else if v = _park || v = _recreation_ground || v = _playground then
-	4
-      else
-        1000
-    end else if k = _building && v <> _no then begin
-      160
-    end else if k = _aeroway && v = _terminal then
-      160
-    else if k = _amenity then begin
-      if v = _grave_yard then
-	6
-      else if v = _parking then
-	9
-      else
-	1000
-    end else if k = _tourism && v = _zoo then
-      4
-(*
-    else if
-      k = _place && v = _city || v = _town || v = _village || v = _hamlet
-    then
-      1
-*)
-    else if all && k = _highway then
-      try Hashtbl.find highways v with Not_found -> 1000
-      (*XXX Add railway=platform, public_transport=platform *)
-    else
-      1000
-  in
-  let filter k v = classify false k v <> 1000 || (k = _area && v = _yes) in
+let surfaces : Surface.classifier =
+  [("natural",
+    [(`Any ["water"; "lake"; "bay"], `Water);
+     (`Any ["wood"], `Forest)]);
+   ("waterway",
+    [(`Any ["riverbank"; "dock"; "mill_pond"; "canal"], `Water)]);
+   ("landuse",
+    [(`Any ["residential"], `Residential);
+     (`Any ["forest"], `Forest);
+     (`Any ["grass"; "meadow"], `Grass);
+     (`Any ["village_green"], `Park);
+     (`Any ["basin"; "reservoir"; "water"], `Water);
+     (`Any ["farm"; "farmland"], `Farmland);
+     (`Any ["cemetery"], `Cemetery);
+     (`Any ["commercial"], `Commercial);
+     (`Any ["industrial"; "railway"], `Industrial)]);
+   ("leisure",
+    [(`Any ["garden"; "common"; "golf_course"], `Grass);
+     (`Any ["park"; "recreation_ground"; "playground"], `Park)]);
+   ("building", [(`Not ["no"], `Building)]);
+   ("aeroway", [(`Any ["terminal"], `Building)]);
+   ("amenity",
+    [(`Any ["grave_yard"], `Cemetery);
+     (`Any ["parking"], `Parking)]);
+   ("tourism", [(`Any ["zoo"], `Park)])]
+
+let highways : Surface.classifier =
+  [("highway",
+    [(`Any ["residential"], `Highway_residential);
+     (`Any ["unclassified"], `Highway_unclassified);
+     (`Any ["living_street"], `Highway_living_street);
+     (`Any ["service"], `Highway_service);
+     (`Any ["pedestrian"], `Highway_pedestrian);
+     (`Any ["track"], `Highway_track);
+     (`Any ["footway"], `Highway_footway);
+     (`Any ["path"], `Highway_path)])]
+
+let _ =
+  let dict = Dictionary.load "strings" in
+  let s v = try Dictionary.find dict v with Not_found -> -1 in
+  let filter =
+    Surface.filter dict (("area", [(`Any ["yes"], `Water)]) :: surfaces) in
 
   (***)
 
@@ -242,7 +172,8 @@ let _ =
     in
     Format.eprintf "Categories@.";
     let assoc_categories =
-      Column_ops.map_2 (fun k v -> classify true k v) assoc_key assoc_val in
+      Column_ops.map_2 (Surface.classify dict (highways @ surfaces))
+        assoc_key assoc_val in
     let (_, category) =
       Column_ops.group
         ~o2:(Column.named dst "poly/category")
@@ -320,12 +251,6 @@ let _ =
   let way_index =
     Projection.diff
       way_index (Column.open_in (Column.named "multipolygon" "removed_ways")) in
-(*
-  Format.eprintf "Projection (way id)@.";
-  ignore(
-  Projection.project ~o:(Column.named "surfaces" "way/id") way_index
-  (Column.open_in (Column.named "base" "way/id")));
-*)
   Format.eprintf "Join (way refs)@.";
   let offset =
     Column.length (Column.open_in (Column.named "surfaces/multi" "way/poly"))
@@ -339,24 +264,6 @@ let _ =
        (Column.open_in (Column.named "base" "way_refs/way")));
 
   compute_categories way_index "base/way_assoc" "surfaces/simple";
-
-(*
-  Format.eprintf "Join (way assoc)@.";
-  let (_, indices) =
-  let idx = Column.open_in (Column.named "base" "way_assoc/idx") in
-  Join.perform
-  ~o1:(Column.named "surfaces" "way_assoc/idx")
-  (Column.identity (Column.length way_index)) way_index
-  (Column.identity (Column.length idx)) idx
-  in
-  Format.eprintf "Project (way assoc)@.";
-  ignore
-  (Projection.project ~o:(Column.named "surfaces" "way_assoc/key") indices
-  (Column.open_in (Column.named "base" "way_assoc/key")));
-  ignore
-  (Projection.project ~o:(Column.named "surfaces" "way_assoc/val") indices
-  (Column.open_in (Column.named "base" "way_assoc/val")));
-*)
 
   Format.eprintf "Associated latitude and longitude.@.";
   let map input =
@@ -517,18 +424,6 @@ let (>>) x f = Data_stream.map f x
 let ratio = 10
 
 let _ =
-(*
-  let way = Column.open_in (Column.named "surfaces/sorted" "way_refs/way") in
-  let node =
-    Column.open_in (Column.named "surfaces/sorted" "way_refs/node") in
-  let latitude =
-    Column.open_in (Column.named "surfaces/sorted" "way_refs/lat") in
-  let longitude =
-    Column.open_in (Column.named "surfaces/sorted" "way_refs/lon") in
-  let way' = Column.open_in (Column.named "surfaces/sorted" "way/idx") in
-  let category =
-    Column.open_in (Column.named "surfaces/sorted" "way/category") in
-*)
   let (nm, st) = Rtree.open_out "surfaces/rtree" in
   let ch = open_out nm in
   let lengths = Array.make (leaf_size * 10(*was / 8*)) 0 in (*XXX Dynamic resizing?*)
@@ -662,7 +557,7 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
        let l = Array.length nodes in
        let (n, _, _) = nodes.(0) in
        let (n', _, _) = nodes.(l - 1) in
-       if l > 1 && n = n' && cat <> 1000 then begin
+       if l > 1 && n = n' && cat <> Surface.none then begin
 	 let offset = ratio / 2 - 1 in
 	 let ways =
            List.map

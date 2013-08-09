@@ -45,10 +45,10 @@ load: $(OBJS) osm/parser.cmx osm/prepare.cmx
 multipolygons: $(OBJS) osm/multipolygons.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-linear: $(OBJS) osm/linear.cmx
+linear: $(OBJS) osm/category.cmx osm/linear.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-surfaces: $(OBJS) osm/surfaces.cmx
+surfaces: $(OBJS) osm/category.cmx osm/surfaces.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
@@ -57,7 +57,7 @@ highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
 contraction: $(OBJS) osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/display.cmx
+display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/category.cmx osm/display.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 clean::

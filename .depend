@@ -80,14 +80,19 @@
 ./not_used/system.cmo : ./not_used/system.cmi
 ./not_used/system.cmx : ./not_used/system.cmi
 ./not_used/system.cmi :
+./osm/category.cmo : database/dictionary.cmi ./osm/category.cmi
+./osm/category.cmx : database/dictionary.cmx ./osm/category.cmi
+./osm/category.cmi : database/dictionary.cmi
 ./osm/contraction.cmo : database/sorting.cmi database/column_ops.cmi \
     database/column.cmi generic/bitvect.cmi generic/binary_heap.cmi
 ./osm/contraction.cmx : database/sorting.cmx database/column_ops.cmx \
     database/column.cmx generic/bitvect.cmx generic/binary_heap.cmx
-./osm/display.cmo : database/rtree.cmi osm/routing.cmi osm/geometry.cmi \
-    database/column.cmi
-./osm/display.cmx : database/rtree.cmx osm/routing.cmx osm/geometry.cmx \
-    database/column.cmx
+./osm/display.cmo : database/rtree.cmi osm/routing.cmi \
+    osm/line_smoothing.cmi osm/geometry.cmi database/column.cmi \
+    osm/category.cmi
+./osm/display.cmx : database/rtree.cmx osm/routing.cmx \
+    osm/line_smoothing.cmx osm/geometry.cmx database/column.cmx \
+    osm/category.cmx
 ./osm/geometry.cmo : ./osm/geometry.cmi
 ./osm/geometry.cmx : ./osm/geometry.cmi
 ./osm/geometry.cmi :
@@ -141,8 +146,8 @@
 ./osm/surfaces.cmo : database/sorting.cmi database/rtree.cmi \
     database/projection.cmi database/join.cmi osm/geometry.cmi \
     database/dictionary.cmi generic/data_stream.cmi database/column_ops.cmi \
-    database/column.cmi
+    database/column.cmi osm/category.cmi
 ./osm/surfaces.cmx : database/sorting.cmx database/rtree.cmx \
     database/projection.cmx database/join.cmx osm/geometry.cmx \
     database/dictionary.cmx generic/data_stream.cmx database/column_ops.cmx \
-    database/column.cmx
+    database/column.cmx osm/category.cmx
