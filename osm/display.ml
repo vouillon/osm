@@ -956,10 +956,12 @@ let t = Unix.gettimeofday () in
      end else
        Cairo.fill ctx
    in
+   let small_area = truncate (64. *. (10_000_000. /. scale) ** 2.) in
+Format.eprintf "%d@." small_area;
    let iter i =
      SP.iter
        (fun (_, area, cat, ways) ->
-  if (st.level >= 15.5 || area > 50_000_000)
+  if (st.level >= 15.5 || (area > small_area && (area > 50_000_000 || Surface.of_id cat <> `Building)))
   (*  && ((*st.level >= 12. ||*) area > 266_710_5250(*1_000_000_000*))*)
   then begin
           if (cat <> !prev_cat || !count > 10000) && !prev_cat <> -1 then begin
