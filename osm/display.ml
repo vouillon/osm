@@ -203,6 +203,8 @@ end)
 
 let (>>) x f = f x
 
+let pedestrian_surface = Cairo.PNG.create "images/pedestrian.png"
+
 (****)
 
 module Bbox = Rtree.Bbox
@@ -939,7 +941,8 @@ let t = Unix.gettimeofday () in
      	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
      | `Highway_pedestrian | `Highway_track
      | `Highway_footway | `Highway_path ->
-     	   Cairo.set_source_rgb ctx 0.95 0.95 0.95
+           Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
+           Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
      | `Highway_residential | `Highway_unclassified
      | `Highway_living_street | `Highway_service ->
          Cairo.set_source_rgb ctx 0.8 0.8 0.8
