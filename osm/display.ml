@@ -838,10 +838,10 @@ let t = Unix.gettimeofday () in
      LP.add_group partition
        [ `Runway; `Taxiway;
          `Rail; `Tram; `Subway;
+         `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
          `Residential; `Unclassified; `Living_street; `Road; `Service;
          `Tertiary_link; `Secondary_link; `Primary_link;
          `Tertiary; `Secondary; `Primary;
-         `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
          `Trunk_link; `Motorway_link;
          `Trunk; `Motorway ]
    in
