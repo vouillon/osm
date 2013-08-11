@@ -201,6 +201,27 @@ module Surface = Category.Make (struct
       `Highway_footway; `Highway_path ]
 end)
 
+module Linear_feature = Category.Make (struct
+  type t =
+    [ `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
+    | `Motorway_link | `Trunk_link | `Primary_link
+    | `Secondary_link | `Tertiary_link
+    | `Residential | `Unclassified | `Living_street | `Road | `Service
+    | `Pedestrian | `Track | `Cycleway | `Bridleway | `Footway | `Path | `Steps
+    | `Waterway
+    | `Runway | `Taxiway
+    | `Rail | `Tram | `Subway ]
+  let list =
+    [ `Motorway; `Trunk; `Primary; `Secondary; `Tertiary;
+      `Motorway_link; `Trunk_link; `Primary_link;
+      `Secondary_link; `Tertiary_link;
+      `Residential; `Unclassified; `Living_street; `Road; `Service;
+      `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
+      `Waterway;
+      `Runway; `Taxiway;
+      `Rail; `Tram; `Subway ]
+end)
+
 let (>>) x f = f x
 
 let pedestrian_surface = Cairo.PNG.create "images/pedestrian.png"
@@ -446,7 +467,6 @@ let build_paths edges =
     if (cat <> !prev_cat || lay <> !prev_lay) && i > !i0 then begin
       paths :=
         (!prev_cat, !prev_lay, chunk tbl edges !i0 (i - !i0)) :: !paths;
-if v then Format.eprintf "----@.";
       i0 := i
     end;
     prev_cat := cat;
@@ -454,6 +474,7 @@ if v then Format.eprintf "----@.";
   done;
   paths :=
     (!prev_cat, !prev_lay, chunk tbl edges !i0 (len - !i0)) :: !paths;
+if v then Format.eprintf "----@.";
   for i = 0 to Array.length tbl - 1 do
     assert (tbl.(i))
   done;
@@ -592,11 +613,7 @@ let decode_surfaces i =
 let prepare_surfaces lst =
   Array.of_list
     (List.map
-       (fun (cat, lay, ways) ->
-          let layer = (cat / 32) * 16 + lay in
-(*
-          let layer = (cat / 32) + lay * 8 in
-*)
+       (fun (cat, layer, ways) ->
           let area =
             List.fold_left
               (fun a (x, y) -> a +. Geometry.polygon_area_float x y) 0. ways in
@@ -812,108 +829,123 @@ let surfaces' = surfaces in
 *)
 if debug_time then
 Format.eprintf "Sorting surfaces (%d elements): %.3f@." (Array.length surfaces') (Unix.gettimeofday () -. t);
+
 let t = Unix.gettimeofday () in
-   let adjusted_layer (cat, lay, is_bridge, is_tunnel) =
-     lay * 3 + (if is_bridge then 1 else 0)
-             - (if is_tunnel then 1 else 0)
-   in 
-   Array.sort
-     (fun ((cat, _, _, _) as info, _) ((cat', _, _, _) as info', _) ->
-        let c = compare (adjusted_layer info) (adjusted_layer info') in
-        if c <> 0 then c else
-        compare cat cat')
-     linear_features;
+   let module LP = Linear_feature.Partition in
+   let partition = LP.make () in
+   let waterway = LP.add_group partition [`Waterway] in
+   let ways =
+     LP.add_group partition
+       [ `Runway; `Taxiway;
+         `Rail; `Tram; `Subway;
+         `Residential; `Unclassified; `Living_street; `Road; `Service;
+         `Tertiary_link; `Secondary_link; `Primary_link;
+         `Tertiary; `Secondary; `Primary;
+         `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
+         `Trunk_link; `Motorway_link;
+         `Trunk; `Motorway ]
+   in
+   let layer =
+     Array.map
+       (fun ((cat, lay, is_bridge, is_tunnel), _) ->
+          16 +
+          lay * 3 + (if is_bridge then 1 else 0)
+                  - (if is_tunnel then 1 else 0))
+       linear_features
+   in
+let linear_features' = linear_features in
+   let linear_features =
+     LP.apply partition linear_features (fun ((cat, _, _, _), _) -> cat)
+       >> LP.order_totally
+       >> LP.order_by layer
+       >> LP.order_by_group
+       >> LP.select
+   in
 if debug_time then
-Format.eprintf "Sorting lines (%d elements): %.3f@." (Array.length linear_features) (Unix.gettimeofday () -. t);
+Format.eprintf "Sorting lines (%d elements): %.3f@." (Array.length linear_features') (Unix.gettimeofday () -. t);
 if debug_time then begin
 let n = ref 0 in
 Array.iter (fun (_, _, _, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) surfaces';
 Format.eprintf "Surfaces: %d nodes@." !n;
 let n = ref 0 in
-Array.iter (fun (_, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) linear_features;
+Array.iter (fun (_, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) linear_features';
 Format.eprintf "Lines: %d nodes@." !n
 end;
-
-   let draw_linear_features i l pred stroke =
+   let iter_linear_features pred stroke i =
      let prev_info = ref (-1, 0, false, false) in
      let count = ref 0 in
-     for j = i to i + l - 1 do
-       let (info, ways) = linear_features.(j) in
-       if pred info then begin
-         if info <> !prev_info then
-           if !count > 0 then stroke !prev_info;
-         prev_info := info;
-         List.iter
-           (fun (x, y) ->
-              let len = Array.length x in
-              if !count > 0 && !count + len > 10000 then begin
-                stroke !prev_info;
-                count := 0
-              end;
-              count := !count + len;
-              let coeff = scale /. 10_000_000. in
-              if st.level >= 15. && Array.length x > 2 then begin
-                (*XXX This could be precomputed when decoding the path *)
-                let ((x, y), (x1, y1), (x2, y2)) =
-                  Line_smoothing.perform x y in
-                let len = Array.length x in
-                Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
-                for k = 1 to len - 1 do
-                  Cairo.curve_to ctx
-                    (x1.(k - 1) *. coeff) (y1.(k - 1) *. coeff)
-                    (x2.(k - 1) *. coeff) (y2.(k - 1) *. coeff)
-                    (x.(k) *. coeff) (y.(k) *. coeff)
-                done
-              end else begin
-                Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
-                for k = 1 to len - 1 do
-                  Cairo.line_to ctx (x.(k) *. coeff) (y.(k) *. coeff)
-                done
-              end)
-           ways
-       end
-     done;
+     LP.iter
+       (fun (info, ways) ->
+          if pred info then begin
+            if info <> !prev_info then
+              if !count > 0 then stroke !prev_info;
+            prev_info := info;
+            List.iter
+              (fun (x, y) ->
+                 let len = Array.length x in
+                 if !count > 0 && !count + len > 10000 then begin
+                   stroke !prev_info;
+                   count := 0
+                 end;
+                 let coeff = scale /. 10_000_000. in
+                 if st.level >= 15. && Array.length x > 2 then begin
+                   (*XXX This could be precomputed when decoding the path *)
+                   let ((x, y), (x1, y1), (x2, y2)) =
+                     Line_smoothing.perform x y in
+                   let len = Array.length x in
+                   count := !count + 3 * len;
+                   Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+                   for k = 1 to len - 1 do
+                     Cairo.curve_to ctx
+                       (x1.(k - 1) *. coeff) (y1.(k - 1) *. coeff)
+                       (x2.(k - 1) *. coeff) (y2.(k - 1) *. coeff)
+                       (x.(k) *. coeff) (y.(k) *. coeff)
+                   done
+                 end else begin
+                   count := !count + len;
+                   Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+                   for k = 1 to len - 1 do
+                     Cairo.line_to ctx (x.(k) *. coeff) (y.(k) *. coeff)
+                   done
+                 end)
+              ways
+          end)
+       i;
      if !count > 0 then stroke !prev_info
    in
-   let iter_linear_feature_layers f =
-     let prev_layer = ref (-10000) in
-     let prev_info = ref (-1, 0, false, false) in
-     let i0 = ref 0 in
-     let len = Array.length linear_features in
-     for i = 0 to len - 1 do
-       let (info, ways) = linear_features.(i) in
-       let layer = adjusted_layer info in
-       if layer <> !prev_layer then begin
-         if i > !i0 then begin
-           let (_, _, is_bridge, is_tunnel) = !prev_info in
-           f !i0 (i - !i0) is_bridge is_tunnel;
-           i0 := i;
-         end;
-         prev_layer := layer;
-         prev_info := info
-       end
-     done;
-     if len > 0 then begin
-       let (_, _, is_bridge, is_tunnel) = !prev_info in
-       f !i0 (len - !i0) is_bridge is_tunnel
-     end
-   in
 
-   (* Draw water lines (below buildings) *)
-   let draw_water_lines () =
-     Cairo.set_line_cap ctx Cairo.ROUND;
+   let draw_water_lines layer =
      Cairo.set_line_join ctx Cairo.JOIN_ROUND;
+     begin match layer with
+       `Tunnel ->
+         Cairo.set_dash ctx [|2.; 4.|]
+     | `Bridge ->
+         Cairo.set_line_cap ctx Cairo.BUTT;
+         Cairo.set_source_rgb ctx 0. 0. 0.;
+         Cairo.set_line_width ctx 4.;
+         linear_features >> LP.with_group waterway
+           >> iter_linear_features
+                (fun (_, _, is_bridge, is_tunnel) -> is_bridge)
+                (fun _ -> Cairo.stroke ctx)
+     | `Ground ->
+         ()
+     end;
+     Cairo.set_line_cap ctx Cairo.ROUND;
      Cairo.set_source_rgb ctx 0.52 0.94 0.94;
      Cairo.set_line_width ctx 2.;
-     let stroke _ = Cairo.stroke ctx in
-     draw_linear_features 0 (Array.length linear_features - 1)
-       (fun (cat, _, _, _) -> cat < 64) stroke
+     linear_features >> LP.with_group waterway
+       >> iter_linear_features
+            (fun (_, _, is_bridge, is_tunnel) ->
+               match layer with
+                 `Tunnel -> is_tunnel
+               | `Bridge -> is_bridge
+               | `Ground -> not (is_tunnel || is_bridge))
+            (fun _ -> Cairo.stroke ctx);
+     Cairo.set_dash ctx [||]
    in
 
 let t = Unix.gettimeofday () in
    (* Draw surfaces *)
-   let prev_cat = ref (-1) in
-   let count = ref 0 in
    let draw_surface cat ctx =
      let cat = Surface.of_id cat in
      begin match cat with
@@ -957,8 +989,9 @@ let t = Unix.gettimeofday () in
        Cairo.fill ctx
    in
    let small_area = truncate (64. *. (10_000_000. /. scale) ** 2.) in
-Format.eprintf "%d@." small_area;
    let iter i =
+     let prev_cat = ref (-1) in
+     let count = ref 0 in
      SP.iter
        (fun (_, area, cat, ways) ->
   if (st.level >= 15.5 || (area > small_area && (area > 50_000_000 || Surface.of_id cat <> `Building)))
@@ -986,69 +1019,69 @@ Format.eprintf "%d@." small_area;
      if !prev_cat <> -1 then draw_surface !prev_cat ctx
    in
    surfaces >> SP.with_group landuse >> iter;
-   draw_water_lines ();
+   (* Draw water lines (below buildings) *)
+   draw_water_lines `Ground;
    surfaces >> SP.with_group water >> iter;
    surfaces >> SP.with_group building_or_highway >> iter;
 
-(*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-   if !prev_cat < 160 then draw_water_lines ();
-*)
 if debug_time then
 Format.eprintf "Drawing surfaces: %.3f@." (Unix.gettimeofday () -. t);
 
 let t = Unix.gettimeofday () in
    (* Draw linear features *)
-   let draw_casing round i0 l =
+   let draw_casing round i =
      Cairo.set_line_cap ctx (if round then Cairo.ROUND else Cairo.BUTT);
      Cairo.set_line_join ctx Cairo.JOIN_ROUND;
      Cairo.set_dash ctx [||];
      let stroke (cat, _,  _, is_tunnel) =
-(*
-       if cat = 192 then begin
-         Cairo.set_dash ctx [|1.; 3.|];
-         if round then Cairo.set_line_cap ctx Cairo.BUTT;
-         Cairo.set_source_rgb ctx 0.27 0.27 0.27
-       end else
-*)
-       if (cat >= 192) || (cat >= 64 && cat <= 70) then
+       let cat = Linear_feature.of_id cat in
+       begin match cat with
+         `Pedestrian | `Track | `Cycleway | `Bridleway | `Footway
+       | `Path | `Steps | `Rail | `Tram | `Subway ->
      	   Cairo.set_source_rgb ctx 1. 1. 1.
-       else
-         Cairo.set_source_rgb ctx 0. 0. 0.;
+       | _ ->
+           Cairo.set_source_rgb ctx 0. 0. 0.
+       end;
        let line_width =
          match cat with
-           85 | 84 -> 11.
-         | 80 | 79 -> 6.5
-         | 83 | 82 | 81 -> 8.
-         | 78 | 77 | 76 -> 5.5
-         | 75 | 74 | 73 | 72 -> 6.
-         | 71 -> 4.
-         | 70 | 69 | 68 | 67 | 66 | 65 | 64 -> 4.
-         | 192 -> 5.
-         | 193 | 194 -> 6.
+           `Trunk | `Motorway -> 11.
+         | `Trunk_link | `Motorway_link -> 6.5
+         | `Tertiary | `Secondary | `Primary -> 8.
+         | `Tertiary_link | `Secondary_link | `Primary_link -> 5.5
+         | `Residential | `Unclassified | `Living_street | `Road -> 6.
+         | `Service -> 4.
+         | `Pedestrian | `Track | `Cycleway
+         | `Bridleway | `Footway | `Path | `Steps -> 4.
+         | `Rail -> 5.
+         | `Tram | `Subway -> 6.
          | _  -> assert false
        in
        let line_width = if round then line_width else line_width -. 0.5 in
        Cairo.set_line_width ctx line_width;
        Cairo.stroke ctx;
-(*
-       if cat = 192 then begin
-         Cairo.set_dash ctx [||];
-         if round then Cairo.set_line_cap ctx Cairo.ROUND
-       end
-*)
      in
-     draw_linear_features i0 l
+     iter_linear_features
        (fun (cat, _, is_bridge, _) ->
-          (cat >= 71 && cat < 127) ||
-          (is_bridge && (cat >= 192 || (cat >= 64 && cat <= 70)))) (*||
-          (st.level >= 15. && (cat >= 71 && cat <= 75)))*)
-       stroke
+          match Linear_feature.of_id cat with
+            `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
+          | `Motorway_link | `Trunk_link | `Primary_link
+          | `Secondary_link | `Tertiary_link
+          | `Residential | `Unclassified | `Living_street | `Road
+          | `Service ->
+              true
+          | `Pedestrian | `Track | `Cycleway | `Bridleway | `Footway
+          | `Path | `Steps | `Rail | `Tram | `Subway when is_bridge ->
+              true
+          | _ ->
+              false)
+       stroke i
    in
-   let draw_inline i0 l =
+   let draw_inline i =
      Cairo.set_line_join ctx Cairo.JOIN_ROUND;
      Cairo.set_line_cap ctx Cairo.ROUND;
      let stroke (cat, _, _, is_tunnel) =
-       if cat = 192 then begin
+       let cat = Linear_feature.of_id cat in
+       if cat = `Rail then begin
          Cairo.set_line_cap ctx Cairo.BUTT;
          Cairo.set_dash ctx [|1.; 3.|];
          Cairo.set_source_rgb ctx 0.27 0.27 0.27;
@@ -1057,74 +1090,89 @@ let t = Unix.gettimeofday () in
          Cairo.set_line_cap ctx Cairo.ROUND;
          Cairo.set_dash ctx [||]
        end;
-       if cat = 85 || cat = 84 || cat = 80 || cat = 79 then
-         Cairo.set_source_rgb ctx 1. 0.8 0.
-       else if cat >= 64 && cat <= 70 then begin
-         Cairo.set_source_rgb ctx 0. 0. 0.;
-         Cairo.set_line_cap ctx Cairo.BUTT;
-         if cat = 64 then
-           Cairo.set_dash ctx [|1.; 2.|]
-         else
-           Cairo.set_dash ctx [|2.; 3.|]
-       end else if cat >= 71 && cat <= 75 then
-         Cairo.set_source_rgb ctx 0.8 0.8 0.8
-       else if cat = 192 || cat = 193 then
+       begin match cat with
+         `Motorway | `Trunk | `Motorway_link | `Trunk_link ->
+           Cairo.set_source_rgb ctx 1. 0.8 0.
+       | `Pedestrian | `Track | `Cycleway | `Bridleway
+       | `Footway | `Path | `Steps ->
+           Cairo.set_source_rgb ctx 0. 0. 0.;
+           Cairo.set_line_cap ctx Cairo.BUTT;
+           if cat = `Steps then
+             Cairo.set_dash ctx [|1.; 2.|]
+           else
+             Cairo.set_dash ctx [|2.; 3.|]
+       | `Residential | `Unclassified | `Living_street | `Road | `Service ->
+           Cairo.set_source_rgb ctx 0.8 0.8 0.8
+       | `Rail | `Tram ->
          Cairo.set_source_rgb ctx 0.27 0.27 0.27
-       else if cat = 194 then
-         Cairo.set_source_rgb ctx 0.6 0.6 0.6
-       else if cat = 128 || cat = 129 then
-         Cairo.set_source_rgb ctx 0.73 0.73 0.8
-       else
-         Cairo.set_source_rgb ctx 1. 1. 1.;
+       | `Subway ->
+           Cairo.set_source_rgb ctx 0.6 0.6 0.6
+       | `Runway | `Taxiway ->
+           Cairo.set_source_rgb ctx 0.73 0.73 0.8
+       | _ ->
+           Cairo.set_source_rgb ctx 1. 1. 1.
+       end;
        let line_width =
          match cat with
-           85 | 84 -> 6.
-         | 80 | 79 -> 3.
-         | 83 | 82 | 81 -> 5.
-         | 78 | 77 | 76 -> 2.5
-         | 75 | 74 | 73 | 72 -> (*if st.level < 15. then 2.5 else*) 4.
-         | 71 -> 2.5
-         | 192 -> 1.
-         | 193 | 194 -> 2.
-         | 64 -> 3.
-         | 65 | 66 | 67 | 68 | 69 | 70 -> 1.
-         | 128 -> max (2.5e-4 *. scale) 2.
+           `Motorway | `Trunk -> 6.
+         | `Motorway_link | `Trunk_link -> 3.
+         | `Primary | `Secondary | `Tertiary -> 5.
+         | `Primary_link | `Secondary_link | `Tertiary_link -> 2.5
+         | `Residential | `Unclassified | `Living_street | `Road -> 4.
+         | `Service -> 2.5
+         | `Rail -> 1.
+         | `Tram | `Subway -> 2.
+         | `Steps -> 3.
+         | `Pedestrian | `Track | `Cycleway
+         | `Bridleway | `Footway | `Path -> 1.
+         | `Runway -> max (2.5e-4 *. scale) 2.
          | _  -> 2.
        in
        Cairo.set_line_width ctx line_width;
        Cairo.stroke ctx;
-       if cat >= 64 && cat <= 70 then begin
-         Cairo.set_line_cap ctx Cairo.ROUND;
-         Cairo.set_dash ctx [||]
+       begin match cat with
+         `Pedestrian | `Track | `Cycleway | `Bridleway
+       | `Footway | `Path | `Steps ->
+           Cairo.set_line_cap ctx Cairo.ROUND;
+           Cairo.set_dash ctx [||]
+       | _ ->
+           ()
        end
      in
-     draw_linear_features i0 l
+     iter_linear_features
        (fun (cat, _, _, is_tunnel) ->
-          cat >= 64 && (not is_tunnel || cat <> 194))
-       stroke
+          not is_tunnel || Linear_feature.of_id cat <> `Subway)
+       stroke i
    in
    (* Underground features *)
    Cairo.Group.push ctx;
-   iter_linear_feature_layers
-     (fun i l is_bridge is_tunnel ->
-        if is_tunnel then draw_casing true i l);
-   iter_linear_feature_layers
-     (fun i l is_bridge is_tunnel ->
-        if is_tunnel then begin
-          draw_casing false i l; draw_inline i l;
-        end);
+   draw_water_lines `Tunnel;
+   linear_features >> LP.with_group ways
+     >> LP.iter_by_key
+          (fun layer i ->
+             if layer mod 3 = 0 then draw_casing true i);
+   linear_features >> LP.with_group ways
+     >> LP.iter_by_key
+          (fun layer i ->
+             if layer mod 3 = 0 then begin
+               draw_casing false i; draw_inline i
+             end);
    Cairo.Group.pop_to_source ctx;
    Cairo.paint ~alpha:0.4 ctx;
    (* Outline *)
-   iter_linear_feature_layers
-     (fun i l is_bridge is_tunnel ->
-        if not is_tunnel then draw_casing true i l);
+   linear_features >> LP.with_group ways
+     >> LP.iter_by_key
+          (fun layer i ->
+             if layer mod 3 <> 0 then draw_casing true i);
    (* Casing/inline *)
-   iter_linear_feature_layers
-     (fun i l is_bridge is_tunnel ->
-        if not is_tunnel then begin
-          if is_bridge then draw_casing false i l; draw_inline i l
-        end);
+   linear_features >> LP.with_group ways
+     >> LP.iter_by_key
+          (fun layer i ->
+             if layer mod 3 <> 0 then begin
+               if layer mod 3 = 2 then draw_casing false i;
+               draw_inline i
+             end);
+   draw_water_lines `Bridge;
 if debug_time then
 Format.eprintf "Drawing lines: %.3f@." (Unix.gettimeofday () -. t)
 

@@ -99,7 +99,7 @@ let surfaces : Surface.classifier =
     [(`Any ["water"; "lake"; "bay"], `Water);
      (`Any ["wood"], `Forest)]);
    ("waterway",
-    [(`Any ["riverbank"; "dock"; "mill_pond"; "canal"], `Water)]);
+    [(`Any ["riverbank"; "dock"], `Water)]);
    ("landuse",
     [(`Any ["residential"], `Residential);
      (`Any ["forest"], `Forest);

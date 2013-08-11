@@ -34,6 +34,13 @@ module Make (X : S) : sig
     val select : ('a, 'b) collection -> ('a, 'b) iterator
     val with_group : group -> ('a, group * 'b) iterator -> ('a, 'b) iterator
     val with_key : int -> ('a, int * 'b) iterator -> ('a, 'b) iterator
+    val with_groups :
+      first:group -> count: int -> ('a, group * 'b) iterator ->
+      ('a, 'b) iterator
+    val with_keys :
+      first:int -> count:int -> ('a, int * 'b) iterator -> ('a, 'b) iterator
+    val iter_by_key :
+      (int -> ('a, 'b) iterator -> unit) -> ('a, int * 'b) iterator -> unit
     val iter : ('a -> unit) -> ('a, _) iterator -> unit
   end
 end

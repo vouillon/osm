@@ -94,53 +94,72 @@ type state =
     mutable prev_bbox : Bbox.t;
     mutable bbox : Bbox.t }
 
-let _ =
-  let t = Dictionary.load "strings" in
-  let s v = try Dictionary.find t v with Not_found -> -1 in
+module Feature = Category.Make (struct
+  type t =
+    [ `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
+    | `Motorway_link | `Trunk_link | `Primary_link
+    | `Secondary_link | `Tertiary_link
+    | `Residential | `Unclassified | `Living_street | `Road | `Service
+    | `Pedestrian | `Track | `Cycleway | `Bridleway | `Footway | `Path | `Steps
+    | `Waterway
+    | `Runway | `Taxiway
+    | `Rail | `Tram | `Subway ]
+  let list =
+    [ `Motorway; `Trunk; `Primary; `Secondary; `Tertiary;
+      `Motorway_link; `Trunk_link; `Primary_link;
+      `Secondary_link; `Tertiary_link;
+      `Residential; `Unclassified; `Living_street; `Road; `Service;
+      `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
+      `Waterway;
+      `Runway; `Taxiway;
+      `Rail; `Tram; `Subway ]
+end)
 
-  let filter =
-    List.map (fun (k, l) -> (s k, table t l))
-      [("highway",
-        [("motorway", 85);
-         ("trunk", 84);
-         ("primary", 83);
-         ("secondary", 82);
-         ("tertiary", 81);
-         ("motorway_link", 80);
-         ("trunk_link", 79);
-         ("primary_link", 78);
-         ("secondary_link", 77);
-         ("tertiary_link", 76);
-         ("residential", 75);
-         ("unclassified", 74);
-         ("living_street", 73);
-         ("road", 72);
-         ("service", 71);
-         ("pedestrian", 70);
-         ("track", 69);
-         ("cycleway", 68);
-         ("bridleway", 67);
-         ("footway", 66);
-         ("path", 65);
-         ("steps", 64)
-        ]);
-       ("waterway",
-        [("weir", 0); ("river", 0); ("canal", 0); ("derelict_canal", 0);
-         ("stream", 0); ("drain", 0);
-         ("ditch", 0); ("wadi", 0)]);
-       ("aeroway", [("runway", 128); ("taxiway", 129)]);
-       ("railway",
-        [("rail", 192); ("tram", 193); ("subway", 194)])]
-  in
+let features : Feature.classifier =
+  [("highway",
+    [(`Any ["motorway"], `Motorway);
+     (`Any ["trunk"], `Trunk);
+     (`Any ["primary"], `Primary);
+     (`Any ["secondary"], `Secondary);
+     (`Any ["tertiary"], `Tertiary);
+     (`Any ["motorway_link"], `Motorway_link);
+     (`Any ["trunk_link"], `Trunk_link);
+     (`Any ["primary_link"], `Primary_link);
+     (`Any ["secondary_link"], `Secondary_link);
+     (`Any ["tertiary_link"], `Tertiary_link);
+     (`Any ["residential"], `Residential);
+     (`Any ["unclassified"], `Unclassified);
+     (`Any ["living_street"], `Living_street);
+     (`Any ["road"], `Road);
+     (`Any ["service"], `Service);
+     (`Any ["pedestrian"], `Pedestrian);
+     (`Any ["track"], `Track);
+     (`Any ["cycleway"], `Cycleway);
+     (`Any ["bridleway"], `Bridleway);
+     (`Any ["footway"], `Footway);
+     (`Any ["path"], `Path);
+     (`Any ["steps"], `Steps)]);
+   ("waterway",
+    [(`Any ["weir"; "river"; "canal"; "derelict_canal";
+            "stream"; "drain"; "ditch"; "wadi"],
+      `Waterway)]);
+   ("aeroway",
+    [(`Any ["runway"], `Runway);
+     (`Any ["taxiway"], `Taxiway)]);
+   ("railway",
+    [(`Any ["rail"], `Rail); (`Any ["tram"], `Tram);
+     (`Any ["subway"], `Subway)])]
+
+let _ =
+  let dict = Dictionary.load "strings" in
+  let s v = try Dictionary.find dict v with Not_found -> -1 in
   let idx = Column.open_in (Column.named "base" "way_assoc/idx") in
   let key = Column.open_in (Column.named "base" "way_assoc/key") in
   let value = Column.open_in (Column.named "base" "way_assoc/val") in
 Format.eprintf "Filtering@.";
   let index =
     Column_ops.unique
-      (Projection.filter_pred_2 key value
-          (fun k v ->
-             List.exists (fun (k', h) -> k = k' && Hashtbl.mem h v) filter))
+      (Projection.filter_pred_2 key value (Feature.filter dict features))
   in
 Format.eprintf "Projection (way index)@.";
   let index = Column_ops.unique (Projection.project index idx) in
@@ -174,13 +193,8 @@ Format.eprintf "Project (way assoc)@.";
   in
 
 Format.eprintf "Categories@.";
-  let classify k v =
-    try
-      Hashtbl.find (List.assq k filter) v
-    with Not_found ->
-      1000
-  in
-  let assoc_categories = Column_ops.map_2 classify assoc_key assoc_val in
+  let assoc_categories =
+    Column_ops.map_2 (Feature.classify dict features) assoc_key assoc_val in
   let (_, category) =
     Column_ops.group
       ~o2:(Column.named "linear" "way/category")

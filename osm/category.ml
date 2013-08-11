@@ -196,16 +196,39 @@ module Make (X : S) = struct
         i_start = 0;
         i_end = Array.length index }
 
-    let with_key k i =
+    let with_keys ~first ~count i =
       match i.i_keys with
         key :: rem ->
-          let s = find i.i_index key k i.i_start i.i_end in
-          let e = find i.i_index key (k + 1) i.i_start i.i_end in
+          let s = find i.i_index key first i.i_start i.i_end in
+          let e = find i.i_index key (first + count) i.i_start i.i_end in
           { i with i_keys = rem; i_start = s; i_end = e }
       | _ ->
           assert false
 
+    let with_key k i = with_keys k 1 i
+
+    let with_groups = with_keys
+
     let with_group = with_key
+
+    let iter_by_key f i =
+      match i.i_keys with
+        key :: rem ->
+          if i.i_end >= i.i_start then begin
+            let j0 = ref i.i_start in
+            let index = i.i_index in
+            let k = ref key.(index.(i.i_start)) in
+            for j = i.i_start + 1 to i.i_end - 1 do
+              if key.(index.(j)) <> !k then begin
+                f !k {i with i_keys = rem; i_start = !j0; i_end = j};
+                j0 := j;
+                k := key.(index.(j))
+              end
+            done;
+            f !k {i with i_keys = rem; i_start = !j0}
+          end
+      | _ ->
+          assert false
 
     let iter f i =
       for j = i.i_start to i.i_end - 1 do
