@@ -1354,6 +1354,18 @@ let t = Unix.gettimeofday () in
    let minor_roads = LP.add_group partition minor_road_cats in
    let major_roads = LP.add_group partition major_road_cats in
    let highways = LP.add_group partition highway_cats in
+(*
+let linear_features =
+  let eps = (10_000_000. /. scale) in
+  Array.map
+    (fun (((cat, _, _, _) as info, ways) as item) ->
+       if List.memq (Linear_feature.of_id cat) ignored_way_cats then
+         item
+       else
+         (info, List.filter (fun (x, y) -> Array.length x > 0) (List.map (fun (x, y) -> Douglas_peucker.perform eps x y) ways)))
+    linear_features
+in
+*)
 let linear_features' = linear_features in
    let linear_features =
      LP.apply partition linear_features (fun ((cat, _, _, _), _) -> cat)
@@ -1380,10 +1392,12 @@ let n = ref 0 in
 Array.iter (fun (_, ways) -> List.iter (fun (x, _) -> n := !n + Array.length x) ways) linear_features';
 Format.eprintf "Lines: %d nodes@." !n;
 let n = ref 0 in
+let n' = ref 0 in
 let m = ref 0 in
-Array.iter (fun ((cat, _, _, _), ways) -> if not (List.memq (Linear_feature.of_id cat) ignored_way_cats) then begin incr m; List.iter (fun (x, _) -> n := !n + Array.length x) ways end) linear_features';
-Format.eprintf "Lines: %d nodes, %d elements (%.2f%%)@." !n !m (100. *. float !m /. float (Array.length linear_features'));
+Array.iter (fun ((cat, _, _, _), ways) -> if not (List.memq (Linear_feature.of_id cat) ignored_way_cats) then begin incr m; List.iter (fun (x, y) -> n := !n + Array.length x; let eps = (10_000_000. /. scale) in let (x', y') = Douglas_peucker.perform eps x y in n' := !n' + Array.length x') ways end) linear_features';
+Format.eprintf "Lines: %d nodes (%d), %d elements (%.2f%%)@." !n !n' !m (100. *. float !m /. float (Array.length linear_features'));
 end;
+
    let draw_water_lines () =
      Cairo.set_line_cap ctx Cairo.BUTT;
      Cairo.set_line_join ctx Cairo.JOIN_MITER;
