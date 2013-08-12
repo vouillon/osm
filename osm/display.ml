@@ -803,12 +803,15 @@ Format.eprintf "Loading lines: %.3f@." (Unix.gettimeofday () -. t);
         `Industrial; `Park; `Cemetery; `Parking ]
    in
    let water = SP.add_group partition [`Water] in
-   let building_or_highway =
+   let building_or_pedestrian =
      SP.add_group partition
        [`Building;
-        `Highway_residential; `Highway_unclassified; `Highway_living_street;
-        `Highway_service; `Highway_pedestrian; `Highway_track;
-        `Highway_footway; `Highway_path ]
+        `Highway_pedestrian; `Highway_track; `Highway_footway; `Highway_path ]
+   in
+   let highway_areas =
+     SP.add_group partition
+       [`Highway_residential; `Highway_unclassified;
+        `Highway_living_street; `Highway_service ]
    in
 let t = Unix.gettimeofday () in
    let area = Array.map (fun (_, a, _, _) -> -a) surfaces in
@@ -874,7 +877,7 @@ end;
    let iter_linear_features pred stroke i =
      let prev_info = ref (-1, 0, false, false) in
      let count = ref 0 in
-     LP.iter
+     LP.iter i
        (fun (info, ways) ->
           if pred info then begin
             if info <> !prev_info then
@@ -909,8 +912,7 @@ end;
                    done
                  end)
               ways
-          end)
-       i;
+          end);
      if !count > 0 then stroke !prev_info
    in
 
@@ -943,92 +945,6 @@ end;
             (fun _ -> Cairo.stroke ctx);
      Cairo.set_dash ctx [||]
    in
-
-let t = Unix.gettimeofday () in
-   (* Draw surfaces *)
-   let draw_surface cat ctx =
-     let cat = Surface.of_id cat in
-     begin match cat with
-       `Water ->
-     	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
-     | `Building ->
-     	   Cairo.set_source_rgb ctx 0.7 0.7 0.7
-     | `Residential ->
-     	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
-     | `Forest ->
-     	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
-     | `Grass ->
-     	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
-     | `Park ->
-     	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
-     | `Farmland ->
-     	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
-     | `Cemetery ->
-     	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
-     | `Commercial ->
-     	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
-     | `Industrial ->
-     	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
-     | `Parking ->
-     	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
-     | `Highway_pedestrian | `Highway_track
-     | `Highway_footway | `Highway_path ->
-           Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
-           Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
-     | `Highway_residential | `Highway_unclassified
-     | `Highway_living_street | `Highway_service ->
-         Cairo.set_source_rgb ctx 0.8 0.8 0.8
-     end;
-     if st.level >= 17. && cat = `Building then begin
-   	 Cairo.set_source_rgb ctx 0.71 0.71 0.71;
-       Cairo.fill_preserve ctx;
-     	 Cairo.set_source_rgb ctx 0.6 0.6 0.6;
-       Cairo.set_line_width ctx 1.;
-       Cairo.stroke ctx
-     end else
-       Cairo.fill ctx
-   in
-   let small_area = truncate (64. *. (10_000_000. /. scale) ** 2.) in
-   let iter i =
-     let prev_cat = ref (-1) in
-     let count = ref 0 in
-     SP.iter
-       (fun (_, area, cat, ways) ->
-  if (st.level >= 15.5 || (area > small_area && (area > 50_000_000 || Surface.of_id cat <> `Building)))
-  (*  && ((*st.level >= 12. ||*) area > 266_710_5250(*1_000_000_000*))*)
-  then begin
-          if (cat <> !prev_cat || !count > 10000) && !prev_cat <> -1 then begin
-            draw_surface !prev_cat ctx;
-            count := 0;
-          end;
-          let coeff = scale /. 10_000_000. in
-          List.iter
-            (fun (x, y) ->
-               Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
-               for i = 1 to Array.length x - 2 do
-                 Cairo.line_to ctx (x.(i) *. coeff) (y.(i) *. coeff)
-               done;
-               Cairo.Path.close ctx;
-               count := !count + Array.length x)
-            ways;
-          if cat <> !prev_cat then begin
-            prev_cat := cat;
-  end
-          end)
-       i;
-     if !prev_cat <> -1 then draw_surface !prev_cat ctx
-   in
-   surfaces >> SP.with_group landuse >> iter;
-   (* Draw water lines (below buildings) *)
-   draw_water_lines `Ground;
-   surfaces >> SP.with_group water >> iter;
-   surfaces >> SP.with_group building_or_highway >> iter;
-
-if debug_time then
-Format.eprintf "Drawing surfaces: %.3f@." (Unix.gettimeofday () -. t);
-
-let t = Unix.gettimeofday () in
-   (* Draw linear features *)
    let draw_casing round i =
      Cairo.set_line_cap ctx (if round then Cairo.ROUND else Cairo.BUTT);
      Cairo.set_line_join ctx Cairo.JOIN_ROUND;
@@ -1144,6 +1060,91 @@ let t = Unix.gettimeofday () in
           not is_tunnel || Linear_feature.of_id cat <> `Subway)
        stroke i
    in
+
+let t = Unix.gettimeofday () in
+   (* Draw surfaces *)
+   let draw_surface cat ctx =
+     let cat = Surface.of_id cat in
+     begin match cat with
+       `Water ->
+     	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
+     | `Building ->
+     	   Cairo.set_source_rgb ctx 0.7 0.7 0.7
+     | `Residential ->
+     	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
+     | `Forest ->
+     	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
+     | `Grass ->
+     	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
+     | `Park ->
+     	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
+     | `Farmland ->
+     	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
+     | `Cemetery ->
+     	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
+     | `Commercial ->
+     	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
+     | `Industrial ->
+     	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
+     | `Parking ->
+     	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
+     | `Highway_pedestrian | `Highway_track
+     | `Highway_footway | `Highway_path ->
+           Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
+           Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
+     | `Highway_residential | `Highway_unclassified
+     | `Highway_living_street | `Highway_service ->
+         Cairo.set_source_rgb ctx 0.8 0.8 0.8
+     end;
+     if st.level >= 17. && cat = `Building then begin
+   	 Cairo.set_source_rgb ctx 0.71 0.71 0.71;
+       Cairo.fill_preserve ctx;
+     	 Cairo.set_source_rgb ctx 0.6 0.6 0.6;
+       Cairo.set_line_width ctx 1.;
+       Cairo.stroke ctx
+     end else
+       Cairo.fill ctx
+   in
+   let small_area = truncate (64. *. (10_000_000. /. scale) ** 2.) in
+   let iter i =
+     let prev_cat = ref (-1) in
+     let count = ref 0 in
+     i
+       (fun (_, area, cat, ways) ->
+  if (st.level >= 15.5 || (area > small_area && (area > 50_000_000 || Surface.of_id cat <> `Building)))
+  (*  && ((*st.level >= 12. ||*) area > 266_710_5250(*1_000_000_000*))*)
+  then begin
+          if (cat <> !prev_cat || !count > 10000) && !prev_cat <> -1 then begin
+            draw_surface !prev_cat ctx;
+            count := 0;
+          end;
+          let coeff = scale /. 10_000_000. in
+          List.iter
+            (fun (x, y) ->
+               Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+               for i = 1 to Array.length x - 2 do
+                 Cairo.line_to ctx (x.(i) *. coeff) (y.(i) *. coeff)
+               done;
+               Cairo.Path.close ctx;
+               count := !count + Array.length x)
+            ways;
+          if cat <> !prev_cat then begin
+            prev_cat := cat;
+  end
+          end);
+     if !prev_cat <> -1 then draw_surface !prev_cat ctx
+   in
+   surfaces >> SP.with_group landuse >> SP.iter >> iter;
+   (* Draw water lines (below buildings) *)
+   draw_water_lines `Ground;
+   surfaces >> SP.with_group water >> SP.iter >> iter;
+   surfaces >> SP.with_group building_or_pedestrian >> SP.iter >> iter;
+
+if debug_time then
+Format.eprintf "Drawing surfaces: %.3f@." (Unix.gettimeofday () -. t);
+
+let t = Unix.gettimeofday () in
+   (* Draw linear features *)
    (* Underground features *)
    Cairo.Group.push ctx;
    draw_water_lines `Tunnel;
@@ -1165,6 +1166,7 @@ let t = Unix.gettimeofday () in
           (fun layer i ->
              if layer mod 3 <> 0 then draw_casing true i);
    (* Casing/inline *)
+   surfaces >> SP.with_group highway_areas >> SP.iter >> iter;
    linear_features >> LP.with_group ways
      >> LP.iter_by_key
           (fun layer i ->

@@ -230,7 +230,7 @@ module Make (X : S) = struct
       | _ ->
           assert false
 
-    let iter f i =
+    let iter i f =
       for j = i.i_start to i.i_end - 1 do
         f i.i_data.(i.i_index.(j))
       done

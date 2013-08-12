@@ -41,6 +41,6 @@ module Make (X : S) : sig
       first:int -> count:int -> ('a, int * 'b) iterator -> ('a, 'b) iterator
     val iter_by_key :
       (int -> ('a, 'b) iterator -> unit) -> ('a, int * 'b) iterator -> unit
-    val iter : ('a -> unit) -> ('a, _) iterator -> unit
+    val iter : ('a, _) iterator -> ('a -> unit) -> unit
   end
 end
