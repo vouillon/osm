@@ -49,6 +49,9 @@
 ./generic/debug.cmo : ./generic/debug.cmi
 ./generic/debug.cmx : ./generic/debug.cmi
 ./generic/debug.cmi :
+./generic/lru_cache.cmo : ./generic/lru_cache.cmi
+./generic/lru_cache.cmx : ./generic/lru_cache.cmi
+./generic/lru_cache.cmi :
 ./generic/mapped_file.cmo : generic/debug.cmi ./generic/mapped_file.cmi
 ./generic/mapped_file.cmx : generic/debug.cmx ./generic/mapped_file.cmi
 ./generic/mapped_file.cmi :
@@ -104,6 +107,9 @@
     osm/routing_profile.cmx database/projection.cmx generic/mapped_file.cmx \
     database/join.cmx osm/geometry.cmx database/dictionary.cmx \
     database/column_ops.cmx database/column.cmx
+./osm/line_smoothing.cmo : ./osm/line_smoothing.cmi
+./osm/line_smoothing.cmx : ./osm/line_smoothing.cmi
+./osm/line_smoothing.cmi :
 ./osm/linear.cmo : database/sorting.cmi database/rtree.cmi \
     database/projection.cmi database/join.cmi osm/geometry.cmi \
     database/dictionary.cmi database/column_ops.cmi database/column.cmi \
@@ -112,9 +118,6 @@
     database/projection.cmx database/join.cmx osm/geometry.cmx \
     database/dictionary.cmx database/column_ops.cmx database/column.cmx \
     osm/category.cmx
-./osm/line_smoothing.cmo : ./osm/line_smoothing.cmi
-./osm/line_smoothing.cmx : ./osm/line_smoothing.cmi
-./osm/line_smoothing.cmi :
 ./osm/multipolygons.cmo : generic/util.cmi database/sorting.cmi \
     database/projection.cmi database/join.cmi osm/geometry.cmi \
     database/dictionary.cmi generic/debug.cmi generic/data_stream.cmi \

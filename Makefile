@@ -15,7 +15,8 @@ OPTLINKFLAGS=$(OPTCOMPFLAGS) -linkpkg -unsafe
 GENERIC=\
   util.cmx debug.cmx bitvect.cmx \
   bytearray_stubs.o bytearray.cmx mapped_file.cmx task_stubs.o task.cmx \
-  binary_heap.cmx pqueue.cmx data_stream.cmx protobuf.cmx
+  binary_heap.cmx pqueue.cmx data_stream.cmx protobuf.cmx \
+  lru_cache.cmx
 
 DATABASE=\
   column_opt.o column.cmx sort.o sorting.cmx join.cmx \

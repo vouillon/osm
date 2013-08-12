@@ -103,89 +103,6 @@ let read_int_2 s pos = Char.code s.[pos] lor (Char.code s.[pos + 1] lsl 8)
 
 (****)
 
-module Cache = struct
-  type 'a node =
-    { key : int;
-      value : 'a;
-      mutable prev : 'a node;
-      mutable next : 'a node }
-
-  type 'a t =
-    { tbl : (int, 'a node) Hashtbl.t;
-      mutable lst : 'a node option;
-      max_size : int;
-      mutable size : int;
-      func : int -> 'a;
-      mutable hits : int;
-      mutable misses : int }
-
-  let front cache =
-    match cache.lst with
-      Some n' -> n'
-    | None    -> assert false
-
-  let remove n =
-    n.prev.next <- n.next;
-    n.next.prev <- n.prev
-
-  let insert_before n n' =
-    n.prev <- n'.prev;
-    n.next <- n';
-    n'.prev.next <- n;
-    n'.prev <- n
-
-  let move_to_front cache n =
-    let n' = front cache in
-    if n' != n then begin
-      remove n;
-      insert_before n n';
-      cache.lst <- Some n
-    end
-
-  let insert_value cache i v =
-    match cache.lst with
-      Some n' ->
-        let n = { key = i; value = v; prev = n'; next = n' } in
-        insert_before n n';
-        cache.lst <- Some n
-    | None ->
-        let rec n = { key = i; value = v; prev = n; next = n } in
-        cache.lst <- Some n
-  
-  let find cache i =
-    try
-      let n = Hashtbl.find cache.tbl i in
-      cache.hits <- cache.hits + 1;
-      move_to_front cache n;
-      n.value
-    with Not_found ->
-      cache.misses <- cache.misses + 1;
-(*
-Format.eprintf "%d %d %d@." cache.size cache.hits cache.misses;
-*)
-      let v = cache.func i in
-      if cache.size = cache.max_size then begin
-        let n' = (front cache).prev in
-        Hashtbl.remove cache.tbl n'.key;
-        remove n'
-      end else
-        cache.size <- cache.size + 1;
-      insert_value cache i v;
-      Hashtbl.add cache.tbl i (front cache);
-      v
-
-  let make n f =
-    let cache =
-      { tbl = Hashtbl.create (2 * n); lst = None;
-        max_size = n; size = 0; func = f;
-        hits = 0; misses = 0 }
-    in
-    fun i -> find cache i
-
-end
-
-(****)
-
 module Surface = Category.Make (struct
   type t =
     [ `Water | `Forest | `Grass | `Farmland | `Residential | `Commercial
@@ -542,8 +459,9 @@ let decode_leaf i =
   done;
   Array.sub edges 0 !i
 
-let decode_leaf =
-  Cache.make 5000 (fun i -> build_paths (decode_leaf i))
+let cache = Lru_cache.make 5000
+
+let decode_leaf = Lru_cache.funct cache (fun i -> build_paths (decode_leaf i))
 
 let find_linear_features x_min y_min x_max y_max =
   let bbox = bounding_box linear_ratio x_min y_min x_max y_max in
@@ -621,7 +539,7 @@ let prepare_surfaces lst =
        lst)
 
 let decode_surfaces =
-  Cache.make 5000 (fun i -> prepare_surfaces (decode_surfaces i))
+  Lru_cache.funct cache (fun i -> prepare_surfaces (decode_surfaces i))
 
 let find_surfaces x_min y_min x_max y_max =
   let bbox = bounding_box surface_ratio x_min y_min x_max y_max in
