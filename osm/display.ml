@@ -124,7 +124,7 @@ module Linear_feature = Category.Make (struct
     | `Secondary_link | `Tertiary_link
     | `Residential | `Unclassified | `Living_street | `Road | `Service
     | `Pedestrian | `Track | `Cycleway | `Bridleway | `Footway | `Path | `Steps
-    | `Waterway
+    | `River | `Canal | `Stream
     | `Runway | `Taxiway
     | `Rail | `Tram | `Subway ]
   let list =
@@ -133,7 +133,7 @@ module Linear_feature = Category.Make (struct
       `Secondary_link; `Tertiary_link;
       `Residential; `Unclassified; `Living_street; `Road; `Service;
       `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
-      `Waterway;
+      `River; `Canal; `Stream;
       `Runway; `Taxiway;
       `Rail; `Tram; `Subway ]
 end)
@@ -769,7 +769,7 @@ Format.eprintf "Sorting surfaces (%d elements): %.3f@." (Array.length surfaces')
 let t = Unix.gettimeofday () in
    let module LP = Linear_feature.Partition in
    let partition = LP.make () in
-   let waterway = LP.add_group partition [`Waterway] in
+   let waterway = LP.add_group partition [`River; `Canal; `Stream] in
    let ways =
      LP.add_group partition
        [ `Runway; `Taxiway;
@@ -1094,9 +1094,9 @@ Format.eprintf "Sorting surfaces (%d elements): %.3f@." (Array.length surfaces')
 let t = Unix.gettimeofday () in
    let module LP = Linear_feature.Partition in
    let partition = LP.make () in
-   let waterway = LP.add_group partition [`Waterway] in
+   let waterway = LP.add_group partition [`River; `Canal] in
    let ignored_ways =
-     LP.add_group partition [ `Footway; `Steps; `Service ] in
+     LP.add_group partition [ `Footway; `Steps; `Service; `Stream ] in
    let minor_roads =
      LP.add_group partition
        [ `Runway; `Taxiway;
@@ -1301,7 +1301,9 @@ let partition_high =
   ([ `Footway; `Steps; `Service;
      `Tram; `Subway; `Taxiway;
      `Pedestrian; `Track; `Cycleway; `Bridleway; `Path;
-     `Residential; `Unclassified; `Living_street; `Road ],
+     `Residential; `Unclassified; `Living_street; `Road;
+     `Stream ],
+   [ `River; `Canal ],
    [ `Runway; `Rail; `Tertiary_link; `Tertiary ],
    [ `Primary_link; `Primary; `Secondary_link; `Secondary ],
    [ `Trunk_link; `Motorway_link; `Trunk; `Motorway ])
@@ -1311,7 +1313,9 @@ let partition_medium =
      `Tram; `Subway; `Taxiway; `Runway;
      `Pedestrian; `Track; `Cycleway; `Bridleway; `Path;
      `Residential; `Unclassified; `Living_street; `Road;
-     `Tertiary_link; `Tertiary ],
+     `Tertiary_link; `Tertiary;
+     `Canal; `Stream ],
+   [ `River ],
    [ `Rail; `Secondary_link; `Secondary ],
    [ `Primary_link; `Primary ],
    [ `Trunk_link; `Motorway_link; `Trunk; `Motorway ])
@@ -1321,7 +1325,9 @@ let partition_low =
      `Tram; `Subway; `Taxiway; `Runway;
      `Pedestrian; `Track; `Cycleway; `Bridleway; `Path;
      `Residential; `Unclassified; `Living_street; `Road;
-     `Tertiary_link; `Tertiary; `Secondary_link; `Secondary ],
+     `Tertiary_link; `Tertiary; `Secondary_link; `Secondary;
+     `Canal; `Stream ],
+   [ `River ],
    [ `Rail ],
    [ `Primary_link; `Primary ],
    [ `Trunk_link; `Motorway_link; `Trunk; `Motorway ])
@@ -1365,9 +1371,10 @@ Format.eprintf "Sorting surfaces (%d elements): %.3f@." (Array.length surfaces')
 let t = Unix.gettimeofday () in
    let module LP = Linear_feature.Partition in
    let partition = LP.make () in
-   let waterway = LP.add_group partition [`Waterway] in
-   let (ignored_way_cats, minor_road_cats, major_road_cats, highway_cats) =
+   let (ignored_way_cats, waterway_cats,
+        minor_road_cats, major_road_cats, highway_cats) =
      road_partition in
+   let waterway = LP.add_group partition waterway_cats in
    let ignored_ways = LP.add_group partition ignored_way_cats in
    let minor_roads = LP.add_group partition minor_road_cats in
    let major_roads = LP.add_group partition major_road_cats in

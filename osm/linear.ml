@@ -101,7 +101,7 @@ module Feature = Category.Make (struct
     | `Secondary_link | `Tertiary_link
     | `Residential | `Unclassified | `Living_street | `Road | `Service
     | `Pedestrian | `Track | `Cycleway | `Bridleway | `Footway | `Path | `Steps
-    | `Waterway
+    | `River | `Canal | `Stream
     | `Runway | `Taxiway
     | `Rail | `Tram | `Subway ]
   let list =
@@ -110,7 +110,7 @@ module Feature = Category.Make (struct
       `Secondary_link; `Tertiary_link;
       `Residential; `Unclassified; `Living_street; `Road; `Service;
       `Pedestrian; `Track; `Cycleway; `Bridleway; `Footway; `Path; `Steps;
-      `Waterway;
+      `River; `Canal; `Stream;
       `Runway; `Taxiway;
       `Rail; `Tram; `Subway ]
 end)
@@ -140,9 +140,9 @@ let features : Feature.classifier =
      (`Any ["path"], `Path);
      (`Any ["steps"], `Steps)]);
    ("waterway",
-    [(`Any ["weir"; "river"; "canal"; "derelict_canal";
-            "stream"; "drain"; "ditch"; "wadi"],
-      `Waterway)]);
+    [(`Any ["river"], `River);
+     (`Any ["canal"], `Canal);
+     (`Any ["stream"; "drain"; "ditch"], `Stream)]);
    ("aeroway",
     [(`Any ["runway"], `Runway);
      (`Any ["taxiway"], `Taxiway)]);
