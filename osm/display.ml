@@ -410,10 +410,10 @@ if v then Format.eprintf "----@.";
 let linear_ratio = 50
 
 let (leaves, linear_rtree) =
-  Rtree.open_in (Column.file_in_database "linear/rtree")
+  Rtree.open_in (Column.file_in_database "linear/rtrees/large")
 let leaves = open_in leaves
 
-let decode_leaf i =
+let decode_leaf ratio leaves i =
   let leaf_size = 2048 in
   let buf = String.create leaf_size in
   seek_in leaves (i * leaf_size);
@@ -458,12 +458,29 @@ let decode_leaf i =
 
 let cache = Lru_cache.make 5000
 
-let decode_leaf = Lru_cache.funct cache (fun i -> build_paths (decode_leaf i))
+let decode_leaf ratio leaves =
+  Lru_cache.funct cache
+    (fun i -> build_paths (decode_leaf linear_ratio leaves i))
 
-let find_linear_features x_min y_min x_max y_max =
-  let bbox = bounding_box linear_ratio x_min y_min x_max y_max in
+let open_tree name =
+  let ratio = linear_ratio in
+  let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
+  let leaves = open_in leaves in
+  (linear_ratio, decode_leaf ratio leaves, tree)
+
+let rtrees =
+  [((-1., 12.5), open_tree "linear/rtrees/large");
+   ((12.5, 30.), open_tree "linear/rtrees/all")]
+
+let find_linear_features level x_min y_min x_max y_max =
   let lst = ref [] in
-  Rtree.find linear_rtree bbox (fun i -> lst := decode_leaf i :: !lst);
+  List.iter
+    (fun ((min_level, max_level), (ratio, decode, tree)) ->
+       if level > min_level && level <= max_level then begin
+         let bbox = bounding_box ratio x_min y_min x_max y_max in
+         Rtree.find tree bbox (fun i -> lst := decode i :: !lst)
+       end)
+    rtrees;
   Array.concat !lst
 
 (****)
@@ -1161,6 +1178,8 @@ end;
        let line_width =
          match cat with
            `Trunk | `Motorway -> 8.
+         | `Motorway_link | `Trunk_link
+         | `Primary_link | `Secondary_link | `Tertiary_link -> 3.
          | _ -> 5.
        in
        Cairo.set_line_width ctx line_width;
@@ -1171,6 +1190,7 @@ end;
           match Linear_feature.of_id cat with
             `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
           | `Motorway_link | `Trunk_link
+          | `Primary_link | `Secondary_link | `Tertiary_link
           | `Residential | `Unclassified | `Living_street | `Road ->
               true
           | _ ->
@@ -1204,9 +1224,9 @@ end;
        let line_width =
          match cat with
            `Motorway | `Trunk -> 4.
-         | `Motorway_link | `Trunk_link -> 1.
+         | `Motorway_link | `Trunk_link
+         | `Primary_link | `Secondary_link | `Tertiary_link -> 1.
          | `Primary | `Secondary | `Tertiary -> 3.
-         | `Primary_link | `Secondary_link | `Tertiary_link -> 3. (*???*)
          | `Residential | `Unclassified | `Living_street | `Road ->
               1.5
          | `Rail -> 1.
@@ -1379,7 +1399,7 @@ let t = Unix.gettimeofday () in
    let minor_roads = LP.add_group partition minor_road_cats in
    let major_roads = LP.add_group partition major_road_cats in
    let highways = LP.add_group partition highway_cats in
-(*
+
 let linear_features =
   let eps = (10_000_000. /. scale) in
   Array.map
@@ -1390,7 +1410,7 @@ let linear_features =
          (info, List.filter (fun (x, y) -> Array.length x > 0) (List.map (fun (x, y) -> Douglas_peucker.perform eps x y) ways)))
     linear_features
 in
-*)
+(**)
 let linear_features' = linear_features in
    let linear_features =
      LP.apply partition linear_features (fun ((cat, _, _, _), _) -> cat)
@@ -1613,7 +1633,7 @@ Format.eprintf "Loading surfaces: %.3f@." (Unix.gettimeofday () -. t);
    (* Load linear features *)
 let t = Unix.gettimeofday () in
   let linear_features =
-    find_linear_features lon_min lat_min lon_max lat_max in
+    find_linear_features st.level lon_min lat_min lon_max lat_max in
 if debug_time then
 Format.eprintf "Loading lines: %.3f@." (Unix.gettimeofday () -. t);
   if st.level >= 14.5 then

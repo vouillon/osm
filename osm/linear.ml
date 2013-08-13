@@ -405,109 +405,143 @@ Format.eprintf "Build R-tree@.";
   let category = Column.stream category in
   let layer = Column.stream layer in
 
-  let node_buf = String.create (16 * 1024) in
-  let edge_buf = String.create (16 * 1024) in
-
-  let (leaves, tree) = Rtree.open_out "linear/rtree" in
-  let leaves = open_out leaves in
-  
-  let new_state () =
-    { node_prev_pos = 0;
-      node_pos = 0;
-      nodes = IntMap.empty;
-      node_lat = 0;
-      node_lon = 0;
-(*
-      node_idx = 0;
-*)
-      node_last = 0;
-      node_count = 0;
-      edge_prev_pos = 0;
-      edge_pos = 0;
-      edge_in = 0;
-      edge_out = 0;
-      edge_count = 0;
-      last_node = 0;
-      prev_bbox = Bbox.empty;
-      bbox = Bbox.empty }
-  in
-  let output_leaf st =
-    output_int_2 leaves st.node_prev_pos;
-    output_int_2 leaves st.edge_prev_pos;
-Format.eprintf "%d %d %d %d@." st.node_prev_pos st.edge_prev_pos st.node_last st.edge_count;
-    output leaves node_buf 0 st.node_prev_pos;
-    output leaves edge_buf 0 (leaf_size - st.node_prev_pos - 4);
-(*
-Format.eprintf "%a@." Bbox.print st.prev_bbox;
-*)
-    Rtree.append tree st.prev_bbox
-(*
-{Bbox.min_lat = 0; Bbox.max_lat = 0x7fffffff;
-Bbox.min_lon = 0; Bbox.max_lon = 0x7fffffff }
-*)
-  in
-  let write_node st n lat lon =
-    let lat = (lat + 24) / 50 in
-    let lon = (lon + 24) / 50 in
-    st.node_pos <- write_signed_varint node_buf st.node_pos (lat - st.node_lat);
-    st.node_lat <- lat;
-    st.node_pos <- write_signed_varint node_buf st.node_pos (lon - st.node_lon);
-    st.node_lon <- lon;
-(*
-    st.node_pos <- write_signed_varint node_buf st.node_pos (n - st.node_idx);
-    st.node_idx <- n;
-*)
-    st.node_count <- st.node_count + 1;
-    st.bbox <- Bbox.add_point st.bbox lat lon
-  in
-let num = ref 0 in
-let miss = ref 0 in
-  let get_node st n lat lon =
-incr num;
-    try
-      IntMap.find n st.nodes
-    with Not_found ->
-incr miss;
-      let n' = st.node_last in
-      st.node_last <- st.node_last + 1;
-      st.nodes <- IntMap.add n n' st.nodes;
-      write_node st n lat lon;
-      n'
-  in
-  let rec write_edge st n1 lat1 lon1 n2 lat2 lon2 cat lay =
-(*
-Format.eprintf "%d <-> %d@." i0 o0;
-*)
-    let i1 = get_node st n1 lat1 lon1 in
-    let i2 = get_node st n2 lat2 lon2 in
-    st.edge_pos <- write_signed_varint edge_buf st.edge_pos (i1 - st.last_node);
-    st.last_node <- i1;
-    st.edge_pos <- write_signed_varint edge_buf st.edge_pos (i2 - st.last_node);
-    st.last_node <- i2;
-    edge_buf.[st.edge_pos] <- Char.chr cat;
-    edge_buf.[st.edge_pos + 1] <- Char.chr lay;
-    st.edge_pos <- st.edge_pos + 2;
-    if st.edge_pos + st.node_pos > leaf_size - 4 then begin
-(*
-Format.eprintf "%d %d@." st.edge_count st.node_count;
-Format.eprintf "%d %f %f@." st.edge_count (float(st.bbox.max_lat - st.bbox.min_lat) /. 200000.) (float (st.bbox.max_lon - st.bbox.min_lon) /. 200000.);
-*)
-(*
-let c = 1. /. 200000. in
-Format.eprintf "%.3f %.3f %.3f %.3f %b@." (c *. float st.bbox.max_lat) (c *. float st.bbox.min_lat) (c *. float st.bbox.max_lon) (c *. float st.bbox.min_lon) (bbox_overlaps test st.bbox);
-*)
-      output_leaf st;
-      write_edge (new_state ()) n1 lat1 lon1 n2 lat2 lon2 cat lay
-    end else begin
-      st.node_prev_pos <- st.node_pos;
-      st.edge_prev_pos <- st.edge_pos;
-      st.prev_bbox <- st.bbox;
-      st.edge_count <- st.edge_count + 1;
-      st
-    end
+  let large_feature cat =
+    match Feature.of_id cat with
+      `Footway | `Steps | `Service | `Tram | `Subway | `Taxiway | `Pedestrian
+    | `Track | `Cycleway | `Bridleway | `Path  | `Residential | `Unclassified
+    | `Living_street | `Road | `Stream ->
+        false
+    | _ ->
+        true
   in
 
-  let rec loop st =
+  let rtrees = ref [] in
+  let open_rtree name =
+    let node_buf = String.create (16 * 1024) in
+    let edge_buf = String.create (16 * 1024) in
+
+    let (leaves, tree) = Rtree.open_out name in
+    let leaves = open_out leaves in
+
+    let new_state () =
+      { node_prev_pos = 0;
+        node_pos = 0;
+        nodes = IntMap.empty;
+        node_lat = 0;
+        node_lon = 0;
+  (*
+        node_idx = 0;
+  *)
+        node_last = 0;
+        node_count = 0;
+        edge_prev_pos = 0;
+        edge_pos = 0;
+        edge_in = 0;
+        edge_out = 0;
+        edge_count = 0;
+        last_node = 0;
+        prev_bbox = Bbox.empty;
+        bbox = Bbox.empty }
+    in
+    let output_leaf st =
+      output_int_2 leaves st.node_prev_pos;
+      output_int_2 leaves st.edge_prev_pos;
+  Format.eprintf "%d %d %d %d@." st.node_prev_pos st.edge_prev_pos st.node_last st.edge_count;
+      output leaves node_buf 0 st.node_prev_pos;
+      output leaves edge_buf 0 (leaf_size - st.node_prev_pos - 4);
+  (*
+  Format.eprintf "%a@." Bbox.print st.prev_bbox;
+  *)
+      Rtree.append tree st.prev_bbox
+  (*
+  {Bbox.min_lat = 0; Bbox.max_lat = 0x7fffffff;
+  Bbox.min_lon = 0; Bbox.max_lon = 0x7fffffff }
+  *)
+    in
+    let write_node st n lat lon =
+      let lat = (lat + 24) / 50 in
+      let lon = (lon + 24) / 50 in
+      st.node_pos <- write_signed_varint node_buf st.node_pos (lat - st.node_lat);
+      st.node_lat <- lat;
+      st.node_pos <- write_signed_varint node_buf st.node_pos (lon - st.node_lon);
+      st.node_lon <- lon;
+  (*
+      st.node_pos <- write_signed_varint node_buf st.node_pos (n - st.node_idx);
+      st.node_idx <- n;
+  *)
+      st.node_count <- st.node_count + 1;
+      st.bbox <- Bbox.add_point st.bbox lat lon
+    in
+  let num = ref 0 in
+  let miss = ref 0 in
+    let get_node st n lat lon =
+  incr num;
+      try
+        IntMap.find n st.nodes
+      with Not_found ->
+  incr miss;
+        let n' = st.node_last in
+        st.node_last <- st.node_last + 1;
+        st.nodes <- IntMap.add n n' st.nodes;
+        write_node st n lat lon;
+        n'
+    in
+    let rec write_edge st n1 lat1 lon1 n2 lat2 lon2 cat lay =
+  (*
+  Format.eprintf "%d <-> %d@." i0 o0;
+  *)
+      let i1 = get_node st n1 lat1 lon1 in
+      let i2 = get_node st n2 lat2 lon2 in
+      st.edge_pos <- write_signed_varint edge_buf st.edge_pos (i1 - st.last_node);
+      st.last_node <- i1;
+      st.edge_pos <- write_signed_varint edge_buf st.edge_pos (i2 - st.last_node);
+      st.last_node <- i2;
+      edge_buf.[st.edge_pos] <- Char.chr cat;
+      edge_buf.[st.edge_pos + 1] <- Char.chr lay;
+      st.edge_pos <- st.edge_pos + 2;
+      if st.edge_pos + st.node_pos > leaf_size - 4 then begin
+  (*
+  Format.eprintf "%d %d@." st.edge_count st.node_count;
+  Format.eprintf "%d %f %f@." st.edge_count (float(st.bbox.max_lat - st.bbox.min_lat) /. 200000.) (float (st.bbox.max_lon - st.bbox.min_lon) /. 200000.);
+  *)
+  (*
+  let c = 1. /. 200000. in
+  Format.eprintf "%.3f %.3f %.3f %.3f %b@." (c *. float st.bbox.max_lat) (c *. float st.bbox.min_lat) (c *. float st.bbox.max_lon) (c *. float st.bbox.min_lon) (bbox_overlaps test st.bbox);
+  *)
+        output_leaf st;
+        write_edge (new_state ()) n1 lat1 lon1 n2 lat2 lon2 cat lay
+      end else begin
+        st.node_prev_pos <- st.node_pos;
+        st.edge_prev_pos <- st.edge_pos;
+        st.prev_bbox <- st.bbox;
+        st.edge_count <- st.edge_count + 1;
+        st
+      end
+    in
+    let st = ref (new_state ()) in
+    let close () =
+      if !st.node_prev_pos > 0 then begin
+        output_leaf !st;
+        close_out leaves;
+        Rtree.close_out tree
+      end;
+Format.eprintf "miss: %d/%d@." !miss !num
+    in
+    rtrees := close :: !rtrees;
+    fun n1 lat1 lon1 n2 lat2 lon2 cat lay ->
+      st := write_edge !st n1 lat1 lon1 n2 lat2 lon2 cat lay
+  in
+
+  let write_edge = open_rtree "linear/rtrees/all" in
+  let write_large_edge = open_rtree "linear/rtrees/large" in
+
+  let write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay =
+    write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay;
+    if large_feature cat then
+      write_large_edge n1 lat1 lon1 n2 lat2 lon2 cat 0
+  in
+
+  let rec loop () =
     let n1 = Column.read node1 in
     let lat1 = Column.read latitude1 in
     let lon1 = Column.read longitude1 in
@@ -516,17 +550,13 @@ Format.eprintf "%.3f %.3f %.3f %.3f %b@." (c *. float st.bbox.max_lat) (c *. flo
     let lon2 = Column.read longitude2 in
     let cat = Column.read category in
     let lay = Column.read layer in
-    if n1 <> max_int then
-      loop (write_edge st n1 lat1 lon1 n2 lat2 lon2 cat lay)
-    else if st.node_prev_pos > 0 then begin
-      output_leaf st;
-      close_out leaves;
-      Rtree.close_out tree
+    if n1 <> max_int then begin
+      write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay;
+      loop ()
     end
   in
-  loop (new_state ());
-
-Format.eprintf "miss: %d/%d@." !miss !num
+  loop ();
+  List.iter (fun close -> close ()) !rtrees
 
 (*
 - Edge table: src node, dst node, category, layer
