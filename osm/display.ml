@@ -470,23 +470,18 @@ let find_linear_features x_min y_min x_max y_max =
 
 (* R-tree containing surfaces *)
 
-let surface_ratio = 10
-
-let (surf_leaves, surfaces) =
-  Rtree.open_in (Column.file_in_database "surfaces/rtree")
-let surf_leaves = open_in surf_leaves
-
 let surface_leaf_size = 2048
-let decode_surfaces i =
+
+let decode_surfaces ratio leaves i =
   let buf = String.create surface_leaf_size in
-  seek_in surf_leaves (i * surface_leaf_size);
-  really_input surf_leaves buf 0 surface_leaf_size;
+  seek_in leaves (i * surface_leaf_size);
+  really_input leaves buf 0 surface_leaf_size;
   let len = read_int_2 buf 0 in
   let buf =
     if len > 1 then begin
       let buf' = String.create (surface_leaf_size * len) in
       String.blit buf 0 buf' 0 surface_leaf_size;
-      really_input surf_leaves buf' surface_leaf_size
+      really_input leaves buf' surface_leaf_size
         ((len - 1) * surface_leaf_size);
       buf'
     end else
@@ -515,8 +510,8 @@ let decode_surfaces i =
     for j = 0 to l - 1 do
       lat := !lat + read_signed_varint buf pos;
       lon := !lon + read_signed_varint buf pos;
-      x.(j) <- float (!lon * surface_ratio);
-      y.(j) <- Geometry.lat_to_y (float (!lat * surface_ratio));
+      x.(j) <- float (!lon * ratio);
+      y.(j) <- Geometry.lat_to_y (float (!lat * ratio));
     done;
     x.(l) <- x.(0);
     y.(l) <- y.(0);
@@ -535,14 +530,37 @@ let prepare_surfaces lst =
           (layer, truncate (area +. 0.5), cat, ways))
        lst)
 
-let decode_surfaces =
-  Lru_cache.funct cache (fun i -> prepare_surfaces (decode_surfaces i))
+let decode_surfaces ratio leaves =
+  Lru_cache.funct cache
+    (fun i -> prepare_surfaces (decode_surfaces ratio leaves i))
 
-let find_surfaces x_min y_min x_max y_max =
-  let bbox = bounding_box surface_ratio x_min y_min x_max y_max in
+let open_tree name =
+  let ch = open_in (Column.file_in_database (Filename.concat name "ratio")) in
+  let ratio = int_of_string (input_line ch) in
+  close_in ch;
+  let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
+  let leaves = open_in leaves in
+  (ratio, decode_surfaces ratio leaves, tree)
+
+let large_surfaces = open_tree "surfaces/rtrees/large"
+
+let rtrees =
+  [((-1., 8.), open_tree "surfaces/rtrees/08");
+   ((8., 10.), open_tree "surfaces/rtrees/10");
+   ((10., 12.), open_tree "surfaces/rtrees/12");
+   ((12., 30.), large_surfaces);
+   ((15.5, 30.), open_tree "surfaces/rtrees/small")]
+
+let find_surfaces level x_min y_min x_max y_max =
   let lst = ref [] in
-  Rtree.find surfaces bbox
-    (fun i -> lst := decode_surfaces i :: !lst);
+  List.iter
+    (fun ((min_level, max_level), (ratio, decode, tree)) ->
+       if level > min_level && level <= max_level then begin
+         let bbox = bounding_box ratio x_min y_min x_max y_max in
+         Rtree.find tree bbox
+           (fun i -> lst := decode i :: !lst)
+       end)
+    rtrees;
   Array.concat !lst
 
 (**** Pixmap ***)
@@ -1581,7 +1599,7 @@ Format.eprintf "map: %d %d %d %d@." x y width height;
 
    (* Load surfaces *)
 let t = Unix.gettimeofday () in
-  let surfaces = find_surfaces lon_min lat_min lon_max lat_max in
+  let surfaces = find_surfaces st.level lon_min lat_min lon_max lat_max in
 if debug_time then
 Format.eprintf "Loading surfaces: %.3f@." (Unix.gettimeofday () -. t);
 
@@ -1668,13 +1686,16 @@ let st =
 
 let lat = ref 48.850 in
 let lon =  ref 2.350 in
-let bbox = Rtree.bounding_box surfaces in
-let c x = truncate (x *. 10_000_000. /. float surface_ratio +. 0.5) in
-Format.eprintf "%a %d %d@." Bbox.print bbox (c !lat) (c !lon);
-if not (Bbox.contains_point bbox (c !lat) (c !lon)) then begin
-  let c x = float x /. 10_000_000. *. float surface_ratio in
-  lat := c ((bbox.Bbox.min_lat + bbox.Bbox.max_lat) / 2);
-  lon := c ((bbox.Bbox.min_lon + bbox.Bbox.max_lon) / 2)
+begin
+  let (ratio, _, tree) = large_surfaces in
+  let bbox = Rtree.bounding_box tree in
+  let c x = truncate (x *. 10_000_000. /. float ratio +. 0.5) in
+  Format.eprintf "%a %d %d@." Bbox.print bbox (c !lat) (c !lon);
+  if not (Bbox.contains_point bbox (c !lat) (c !lon)) then begin
+    let c x = float x /. 10_000_000. *. float ratio in
+    lat := c ((bbox.Bbox.min_lat + bbox.Bbox.max_lat) / 2);
+    lon := c ((bbox.Bbox.min_lon + bbox.Bbox.max_lon) / 2)
+  end
 end;
 let scale = compute_scale st in
 st.rect <-

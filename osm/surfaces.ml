@@ -55,6 +55,28 @@ let output_int_2 ch v =
   output_byte ch (v land 0xff);
   output_byte ch (v lsr 8)
 
+let resize_array size a =
+  let l = Array.length !a in
+  assert (l > 0);
+  if l < size then begin
+    let l' = ref l in
+    while !l' < size do l' := 2 * !l' done;
+    let a' = Array.make !l' !a.(0) in
+    Array.blit !a 0 a' 0 l;
+    a := a'
+  end
+
+let resize_string size s =
+  let l = String.length !s in
+  assert (l > 0);
+  if l < size then begin
+    let l' = ref l in
+    while !l' < size do l' := 2 * !l' done;
+    let s' = String.make !l' !s.[0] in
+    String.blit !s 0 s' 0 l;
+    s := s'
+  end
+
 (****)
 
 (*XXX Duplicated code... *)
@@ -421,16 +443,19 @@ let to_stream_4 tbl1 tbl2 tbl3 tbl4 =
 
 let (>>) x f = Data_stream.map f x
 
-let ratio = 10
+let rtrees = ref []
 
-let _ =
-  let (nm, st) = Rtree.open_out "surfaces/rtree" in
+let open_rtree name ratio =
+  let (nm, st) = Rtree.open_out name in
+  let ch = open_out (Column.file_in_database (Filename.concat name "ratio")) in
+  Printf.fprintf ch "%d\n" ratio;
+  close_out ch;
   let ch = open_out nm in
-  let lengths = Array.make (leaf_size * 10(*was / 8*)) 0 in (*XXX Dynamic resizing?*)
-  let categories = Array.make (leaf_size * 10 (*was / 8*)) 0 in
-  let layers = Array.make (leaf_size * 10 (*was / 8*)) 0 in
+  let lengths = ref (Array.make (leaf_size / 8) 0) in
+  let categories = ref (Array.make (leaf_size / 8) 0) in
+  let layers = ref (Array.make (leaf_size / 8) 0) in
   let n = ref 0 in
-  let buf = String.make (327680 + leaf_size) '\000' in (*XXX Dynamic resizing?*)
+  let buf = ref (String.make (256 + leaf_size) '\000') in
   let pos = ref 0 in
   let bbox = ref Bbox.empty in
   let last_lat = ref 0 in
@@ -443,15 +468,15 @@ Format.eprintf "%d %d %d@." len !n !pos;
     output_int_2 ch len;
     output_int_2 ch !n;
     for i = 0 to !n - 1 do
-      output_int_2 ch lengths.(i);
-      output_byte ch categories.(i);
-      output_byte ch (layers.(i) + 128);
+      output_int_2 ch !lengths.(i);
+      output_byte ch !categories.(i);
+      output_byte ch (!layers.(i) + 128);
     done;
     Rtree.append st !bbox;
     for i = 1 to len - 1 do
       Rtree.append st Bbox.empty
     done;
-    output ch buf 0 (len * leaf_size - !n * 4 - 4);
+    output ch !buf 0 (len * leaf_size - !n * 4 - 4);
     n := 0;
     pos := 0;
     bbox := Bbox.empty;
@@ -468,12 +493,13 @@ let ch = open_out "/tmp/c" in
 	(fun pos (lat, lon) ->
 	   let pos = ref pos in
 	   for i = 0 to Array.length lat - 2 do
-	     pos := write_signed_varint buf !pos (lat.(i) - !last_lat);
+             resize_string (!pos + 20) buf;
+	     pos := write_signed_varint !buf !pos (lat.(i) - !last_lat);
 (*
 Printf.fprintf ch "%d\n" (lat.(i) - !last_lat);
 *)
 	     last_lat := lat.(i);
-	     pos := write_signed_varint buf !pos (lon.(i) - !last_lon);
+	     pos := write_signed_varint !buf !pos (lon.(i) - !last_lon);
 (*
 Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
 *)
@@ -486,15 +512,18 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
       flush_ways ();
       add_polygon cat layer (outer_way, inner_ways)
     end else begin
-      lengths.(!n) <- Array.length (fst outer_way) - 1;
-      categories.(!n) <- cat;
-      layers.(!n) <- layer;
+      resize_array (!n + n') lengths;
+      resize_array (!n + n') categories;
+      resize_array (!n + n') layers;
+      !lengths.(!n) <- Array.length (fst outer_way) - 1;
+      !categories.(!n) <- cat;
+      !layers.(!n) <- layer;
       incr n;
       List.iter
 	(fun (lat, _) ->
-	   lengths.(!n) <- Array.length lat - 1;
-	   categories.(!n) <- 0;
-           layers.(!n) <- 0;
+	   !lengths.(!n) <- Array.length lat - 1;
+	   !categories.(!n) <- 0;
+           !layers.(!n) <- 0;
 	   incr n)
 	inner_ways;
       pos := pos';
@@ -508,6 +537,113 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
       bbox := Bbox.union !bbox bbox';
       if !n * 4 + 4 + pos' > leaf_size then flush_ways ()
     end
+  in
+  let close () =
+    if !n > 0 then flush_ways ();
+    Rtree.close_out st
+  in
+  rtrees := close :: !rtrees;
+  add_polygon
+
+let simplify_way ratio (lat, lon) =
+  let (lat, lon) = Douglas_peucker.perform_int ratio lat lon in
+  let delta = ratio / 2 - 1 in
+  let l = Array.length lat in
+  for i = 0 to l - 1 do
+    lat.(i) <- (lat.(i) + delta) / ratio;
+    lon.(i) <- (lon.(i) + delta) / ratio
+  done;
+  let j = ref 0 in
+  for i = 1 to l - 1 do
+    if lat.(i) <> lat.(!j) || lon.(i) <> lon.(!j) then begin
+      incr j;
+      lat.(!j) <- lat.(i);
+      lon.(!j) <- lon.(i)
+    end
+  done;
+  incr j;
+  if !j = l then
+    (lat, lon)
+  else if !j < 4 then
+    ([||], [||])
+  else
+    (Array.sub lat 0 !j, Array.sub lon 0 !j)
+
+let simplify_polygon ratio (outer_way, inner_ways) =
+  let non_empty (lat, _) = Array.length lat > 0 in
+  let outer_way = simplify_way ratio outer_way in
+  if non_empty outer_way then
+    Some (outer_way,
+          List.filter non_empty
+            (List.map (fun w -> simplify_way ratio w) inner_ways))
+  else
+    None
+
+let rescale_way ratio (lat, lon) =
+  let l = Array.length lat in
+  let delta = ratio / 2 - 1 in
+  let lat = Array.copy lat in
+  let lon = Array.copy lon in
+  for i = 0 to l - 1 do
+    lat.(i) <- (lat.(i) + delta) / ratio;
+    lon.(i) <- (lon.(i) + delta) / ratio
+  done;
+  (lat, lon)
+
+let rescale_polygon ratio (outer_way, inner_ways) =
+  (rescale_way ratio outer_way,
+   List.map (fun w -> rescale_way ratio w) inner_ways)
+
+let _ =
+  Format.eprintf "=== Building R-trees ====@.";
+
+  let rtree ratio name =
+    let add_polygon = open_rtree name ratio in
+    fun cat layer ways area ->
+      add_polygon cat layer (rescale_polygon ratio ways)
+  in
+  let rtree_with_filter level name =
+    let scale = 256. /. 360. *. 2. ** level in
+    let area = truncate (8. *. (10_000_000. /. scale) ** 2.) in
+    let ratio = truncate (10_000_000. /. scale /. 2.) in
+    let add_polygon = open_rtree name ratio in
+    fun cat layer ways area' ->
+      if area' >= area then
+        match simplify_polygon ratio ways with
+          Some ways -> add_polygon cat layer ways
+        | None      -> ()
+  in
+  let add_small_polygon = rtree 10 "surfaces/rtrees/small" in
+  let add_large_polygon = rtree 10 "surfaces/rtrees/large" in
+  let add_polygon_12 = rtree_with_filter 12. "surfaces/rtrees/12" in
+  let add_polygon_10 = rtree_with_filter 10. "surfaces/rtrees/10" in
+  let add_polygon_08 = rtree_with_filter 8. "surfaces/rtrees/08" in
+
+  let small_area =
+    let cut_off_level = 15.5 in
+    let scale = 256. /. 360. *. 2. ** cut_off_level in
+    truncate (8. *. (*64. *.*) (10_000_000. /. scale) ** 2.)
+  in
+  let _building = Surface.to_id `Building in
+
+  let add_polygon cat layer ways =
+    let (outer_way, inner_ways) = ways in
+    let area =
+      List.fold_left
+        (fun a (lat, lon) -> a + Geometry.polygon_area lon lat) 0
+        (outer_way :: inner_ways)
+    in
+    if
+      area <= small_area
+        ||
+      (area <= 50_000_000 && cat = _building)
+    then
+      add_small_polygon cat layer ways area
+    else
+      add_large_polygon cat layer ways area;
+    add_polygon_12 cat layer ways area;
+    add_polygon_10 cat layer ways area;
+    add_polygon_08 cat layer ways area
   in
 
   let col c = Column.named "surfaces/sorted" c in
@@ -551,22 +687,31 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
       (0, way) :: rem -> split_multipolygon_rec rem [] way []
     | _               -> assert false
   in
+  let len = Column.length (Column.open_in (col "poly/category")) in
+  let t = Unix.gettimeofday () in
   Data_stream.consume polys
-    (fun (_, ((cat, layer), ways)) ->
+    (fun (idx, ((cat, layer), ways)) ->
+       if idx land 4095 = 4095 then begin
+         let p = float idx /. float len in
+         let t' = Unix.gettimeofday () in
+         Util.set_msg
+           (Format.sprintf "writing polygons: %s %.0f%% eta %.0fs"
+              (Util.progress_bar p) (p *. 100.)
+              ((1. -. p) *. (t' -. t) /. p))
+       end;
        let (_, nodes) = List.hd ways in
        let l = Array.length nodes in
        let (n, _, _) = nodes.(0) in
        let (n', _, _) = nodes.(l - 1) in
        if l > 1 && n = n' && cat <> Surface.none then begin
-	 let offset = ratio / 2 - 1 in
-	 let ways =
+         let ways =
            List.map
-	     (fun (role, nodes) ->
-	        (role,
-		 (Array.map (fun (_, lat, _) -> (lat + offset) / ratio) nodes,
-		  Array.map (fun (_, _, lon) -> (lon + offset) / ratio) nodes)))
-	     ways
-	 in
+             (fun (role, nodes) ->
+                (role,
+                 (Array.map (fun (_, lat, _) -> lat) nodes,
+                  Array.map (fun (_, _, lon) -> lon) nodes)))
+             ways
+         in
 	 let reverse a =
 	   let l = Array.length a in
 	   for i = 0 to l / 2 - 1 do
@@ -585,5 +730,5 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
 	   ways;
 	 List.iter (add_polygon cat layer) (split_multipolygon ways)
        end);
-  if !n > 0 then flush_ways ();
-  Rtree.close_out st
+  Util.set_msg "";
+  List.iter (fun close -> close ()) !rtrees;

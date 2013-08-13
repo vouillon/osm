@@ -49,7 +49,7 @@ multipolygons: $(OBJS) osm/multipolygons.cmx
 linear: $(OBJS) osm/category.cmx osm/linear.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-surfaces: $(OBJS) osm/category.cmx osm/surfaces.cmx
+surfaces: $(OBJS) osm/douglas_peucker.cmx osm/category.cmx osm/surfaces.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx

@@ -16,8 +16,5 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-type t
-
-val make : int -> t
-
-val funct : t -> (int -> 'a) -> int -> 'a
+val perform : float -> float array -> float array -> float array * float array
+val perform_int : int -> int array -> int array -> int array * int array
