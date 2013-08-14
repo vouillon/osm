@@ -405,7 +405,7 @@ Format.eprintf "Build R-tree@.";
   let category = Column.stream category in
   let layer = Column.stream layer in
 
-  let large_feature cat =
+  let large_feature_1 cat =
     match Feature.of_id cat with
       `Footway | `Steps | `Service | `Tram | `Subway | `Taxiway | `Pedestrian
     | `Track | `Cycleway | `Bridleway | `Path  | `Residential | `Unclassified
@@ -414,6 +414,26 @@ Format.eprintf "Build R-tree@.";
     | _ ->
         true
   in
+  let large_feature_2 cat =
+    match Feature.of_id cat with
+      `Footway | `Steps | `Service | `Tram | `Subway | `Taxiway | `Pedestrian
+    | `Track | `Cycleway | `Bridleway | `Path  | `Residential | `Unclassified
+    | `Living_street | `Road | `Tertiary_link | `Tertiary | `Canal | `Stream ->
+        false
+    | _ ->
+        true
+  in
+  let large_feature_3 cat =
+    match Feature.of_id cat with
+      `Footway | `Steps | `Service | `Tram | `Subway | `Taxiway | `Pedestrian
+    | `Track | `Cycleway | `Bridleway | `Path  | `Residential | `Unclassified
+    | `Living_street | `Road | `Tertiary_link | `Tertiary | `Canal | `Stream
+    | `Secondary_link | `Secondary ->
+        false
+    | _ ->
+        true
+  in
+
 
   let rtrees = ref [] in
   let open_rtree name =
@@ -533,12 +553,18 @@ Format.eprintf "miss: %d/%d@." !miss !num
   in
 
   let write_edge = open_rtree "linear/rtrees/all" in
-  let write_large_edge = open_rtree "linear/rtrees/large" in
+  let write_large_edge_1 = open_rtree "linear/rtrees/large_1" in
+  let write_large_edge_2 = open_rtree "linear/rtrees/large_2" in
+  let write_large_edge_3 = open_rtree "linear/rtrees/large_3" in
 
   let write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay =
     write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay;
-    if large_feature cat then
-      write_large_edge n1 lat1 lon1 n2 lat2 lon2 cat 0
+    if large_feature_1 cat then
+      write_large_edge_1 n1 lat1 lon1 n2 lat2 lon2 cat 0;
+    if large_feature_2 cat then
+      write_large_edge_2 n1 lat1 lon1 n2 lat2 lon2 cat 0;
+    if large_feature_3 cat then
+      write_large_edge_3 n1 lat1 lon1 n2 lat2 lon2 cat 0;
   in
 
   let rec loop () =

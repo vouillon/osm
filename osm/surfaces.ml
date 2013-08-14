@@ -628,7 +628,10 @@ let _ =
   let add_large_polygon = rtree 10 "surfaces/rtrees/large" in
   let add_polygon_12 = rtree_with_filter 12. "surfaces/rtrees/12" in
   let add_polygon_10 = rtree_with_filter 10. "surfaces/rtrees/10" in
+  let add_polygon_09 = rtree_with_filter 9. "surfaces/rtrees/09" in
   let add_polygon_08 = rtree_with_filter 8. "surfaces/rtrees/08" in
+  let add_polygon_07 = rtree_with_filter 7. "surfaces/rtrees/07" in
+  let add_polygon_06 = rtree_with_filter 6. "surfaces/rtrees/06" in
 
   let small_area =
     let cut_off_level = 15.5 in
@@ -654,7 +657,10 @@ let _ =
       add_large_polygon cat layer ways area;
     add_polygon_12 cat layer ways area;
     add_polygon_10 cat layer ways area;
-    add_polygon_08 cat layer ways area
+    add_polygon_09 cat layer ways area;
+    add_polygon_08 cat layer ways area;
+    add_polygon_07 cat layer ways area;
+    add_polygon_06 cat layer ways area
   in
 
   let col c = Column.named "surfaces/sorted" c in

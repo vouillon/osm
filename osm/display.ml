@@ -471,8 +471,10 @@ let open_tree name =
   (linear_ratio, decode_leaf ratio leaves, tree)
 
 let rtrees =
-  [((-1., 12.5), open_tree "linear/rtrees/large");
-   ((12.5, 30.), open_tree "linear/rtrees/all")]
+  [((-1., 11.5), open_tree "linear/rtrees/large_3");
+   ((11.5, 12.5), open_tree "linear/rtrees/large_2");
+   ((12.5, 13.5), open_tree "linear/rtrees/large_1");
+   ((13.5, 30.), open_tree "linear/rtrees/all")]
 
 let find_linear_features level x_min y_min x_max y_max =
   let lst = ref [] in
@@ -564,8 +566,11 @@ let open_tree name =
 let large_surfaces = open_tree "surfaces/rtrees/large"
 
 let rtrees =
-  [((-1., 8.), open_tree "surfaces/rtrees/08");
-   ((8., 10.), open_tree "surfaces/rtrees/10");
+  [((-1., 6.), open_tree "surfaces/rtrees/06");
+   ((6., 7.), open_tree "surfaces/rtrees/07");
+   ((7., 8.), open_tree "surfaces/rtrees/08");
+   ((8., 9.), open_tree "surfaces/rtrees/09");
+   ((9., 10.), open_tree "surfaces/rtrees/10");
    ((10., 12.), open_tree "surfaces/rtrees/12");
    ((12., 30.), large_surfaces);
    ((15.5, 30.), open_tree "surfaces/rtrees/small")]
