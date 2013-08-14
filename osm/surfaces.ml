@@ -476,6 +476,7 @@ Format.eprintf "%d %d %d@." len !n !pos;
     for i = 1 to len - 1 do
       Rtree.append st Bbox.empty
     done;
+    resize_string (len * leaf_size - !n * 4 - 4) buf;
     output ch !buf 0 (len * leaf_size - !n * 4 - 4);
     n := 0;
     pos := 0;
