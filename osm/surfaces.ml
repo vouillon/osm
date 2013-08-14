@@ -103,13 +103,15 @@ let _ = Column.set_database "/tmp/osm"
 
 module Surface = Category.Make (struct
   type t =
-    [ `Water | `Forest | `Grass | `Farmland | `Residential | `Commercial
+    [ `Water | `Forest | `Grass | `Heath | `Rock | `Sand | `Glacier
+    | `Farmland | `Residential | `Commercial
     | `Industrial | `Park | `Cemetery | `Parking | `Building
     | `Highway_residential | `Highway_unclassified | `Highway_living_street
     | `Highway_service | `Highway_pedestrian | `Highway_track
     | `Highway_footway | `Highway_path ]
   let list = 
-    [ `Water; `Forest; `Grass; `Farmland; `Residential; `Commercial;
+    [ `Water; `Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
+      `Farmland; `Residential; `Commercial;
       `Industrial; `Park; `Cemetery; `Parking; `Building;
       `Highway_residential; `Highway_unclassified; `Highway_living_street;
       `Highway_service; `Highway_pedestrian; `Highway_track;
@@ -119,7 +121,12 @@ end)
 let surfaces : Surface.classifier =
   [("natural",
     [(`Any ["water"; "lake"; "bay"], `Water);
-     (`Any ["wood"], `Forest)]);
+     (`Any ["wood"; "scrub"], `Forest);
+     (`Any ["grassland"; "fell"], `Grass);
+     (`Any ["heath"], `Heath);
+     (`Any ["rock"; "bare_rock"; "scree"], `Rock);
+     (`Any ["sand"; "beach"], `Sand);
+     (`Any ["glacier"], `Glacier)]);
    ("waterway",
     [(`Any ["riverbank"; "dock"], `Water)]);
    ("landuse",
@@ -127,9 +134,12 @@ let surfaces : Surface.classifier =
      (`Any ["forest"], `Forest);
      (`Any ["grass"; "meadow"], `Grass);
      (`Any ["village_green"], `Park);
-     (`Any ["basin"; "reservoir"; "water"], `Water);
-     (`Any ["farm"; "farmland"], `Farmland);
+     (`Any ["basin"; "reservoir"; "water"; "salt_pond"], `Water);
+     (`Any ["farm"; "farmland"; "allotments";
+            "greenhouse_horticulture"; "orchard"; "vineyard"],
+      `Farmland);
      (`Any ["cemetery"], `Cemetery);
+     (`Any ["query"], `Rock);
      (`Any ["commercial"], `Commercial);
      (`Any ["industrial"; "railway"], `Industrial)]);
    ("leisure",

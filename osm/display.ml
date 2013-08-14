@@ -104,13 +104,15 @@ let log2 x =
 
 module Surface = Category.Make (struct
   type t =
-    [ `Water | `Forest | `Grass | `Farmland | `Residential | `Commercial
+    [ `Water | `Forest | `Grass | `Heath | `Rock | `Sand | `Glacier
+    | `Farmland | `Residential | `Commercial
     | `Industrial | `Park | `Cemetery | `Parking | `Building
     | `Highway_residential | `Highway_unclassified | `Highway_living_street
     | `Highway_service | `Highway_pedestrian | `Highway_track
     | `Highway_footway | `Highway_path ]
   let list = 
-    [ `Water; `Forest; `Grass; `Farmland; `Residential; `Commercial;
+    [ `Water; `Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
+      `Farmland; `Residential; `Commercial;
       `Industrial; `Park; `Cemetery; `Parking; `Building;
       `Highway_residential; `Highway_unclassified; `Highway_living_street;
       `Highway_service; `Highway_pedestrian; `Highway_track;
@@ -456,7 +458,7 @@ let decode_leaf ratio leaves i =
   done;
   Array.sub edges 0 !i
 
-let cache = Lru_cache.make 5000
+let cache = Lru_cache.make 1000
 
 let decode_leaf ratio leaves =
   Lru_cache.funct cache
@@ -746,6 +748,46 @@ let draw_surfaces st ctx pred fill i =
        end);
   if !prev_cat <> -1 then fill !prev_cat
 
+let set_surface_color ctx cat =
+  match cat with
+    `Water ->
+  	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
+  | `Forest ->
+  	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
+  | `Grass ->
+  	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
+  | `Heath -> 
+  	   Cairo.set_source_rgb ctx 0.59 0.74 0.42
+  | `Rock ->
+  	   Cairo.set_source_rgb ctx 0.37 0.42 0.49
+  | `Sand ->
+  	   Cairo.set_source_rgb ctx 0.94 0.93 0.22
+  | `Glacier ->
+  	   Cairo.set_source_rgb ctx 0.80 0.94 0.87
+  | `Farmland ->
+  	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
+  | `Park ->
+  	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
+  | `Residential ->
+  	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
+  | `Commercial ->
+  	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
+  | `Industrial ->
+  	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
+  | `Parking ->
+  	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
+  | `Cemetery ->
+  	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
+  | `Building ->
+  	   Cairo.set_source_rgb ctx 0.7 0.7 0.7
+  | `Highway_pedestrian | `Highway_track
+  | `Highway_footway | `Highway_path ->
+        Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
+        Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
+  | `Highway_residential | `Highway_unclassified
+  | `Highway_living_street | `Highway_service ->
+      Cairo.set_source_rgb ctx 0.8 0.8 0.8
+
 (****)
 
 let draw_map_high_levels st ctx surfaces linear_features =
@@ -754,7 +796,8 @@ let draw_map_high_levels st ctx surfaces linear_features =
    let partition = SP.make () in
    let landuse =
      SP.add_group partition
-       [`Forest; `Grass; `Farmland; `Residential; `Commercial;
+       [`Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
+        `Farmland; `Residential; `Commercial;
         `Industrial; `Park; `Cemetery; `Parking ]
    in
    let water = SP.add_group partition [`Water] in
@@ -983,37 +1026,7 @@ let t = Unix.gettimeofday () in
    (* Draw surfaces *)
    let fill_surface cat =
      let cat = Surface.of_id cat in
-     begin match cat with
-       `Water ->
-     	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
-     | `Building ->
-     	   Cairo.set_source_rgb ctx 0.7 0.7 0.7
-     | `Residential ->
-     	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
-     | `Forest ->
-     	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
-     | `Grass ->
-     	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
-     | `Park ->
-     	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
-     | `Farmland ->
-     	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
-     | `Cemetery ->
-     	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
-     | `Commercial ->
-     	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
-     | `Industrial ->
-     	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
-     | `Parking ->
-     	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
-     | `Highway_pedestrian | `Highway_track
-     | `Highway_footway | `Highway_path ->
-           Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
-           Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
-     | `Highway_residential | `Highway_unclassified
-     | `Highway_living_street | `Highway_service ->
-         Cairo.set_source_rgb ctx 0.8 0.8 0.8
-     end;
+     set_surface_color ctx cat;
      if st.level >= 17. && cat = `Building then begin
    	 Cairo.set_source_rgb ctx 0.71 0.71 0.71;
        Cairo.fill_preserve ctx;
@@ -1079,7 +1092,8 @@ let draw_map_medium_levels st ctx surfaces linear_features =
    let partition = SP.make () in
    let landuse =
      SP.add_group partition
-       [`Forest; `Grass; `Farmland; `Residential; `Commercial;
+       [`Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
+        `Farmland; `Residential; `Commercial;
         `Industrial; `Park; `Cemetery; `Parking ]
    in
    let water = SP.add_group partition [`Water] in
@@ -1254,37 +1268,7 @@ let t = Unix.gettimeofday () in
    (* Draw surfaces *)
    let fill_surface cat =
      let cat = Surface.of_id cat in
-     begin match cat with
-       `Water ->
-     	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
-     | `Building ->
-     	   Cairo.set_source_rgb ctx 0.6 0.6 0.6
-     | `Residential ->
-     	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
-     | `Forest ->
-     	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
-     | `Grass ->
-     	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
-     | `Park ->
-     	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
-     | `Farmland ->
-     	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
-     | `Cemetery ->
-     	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
-     | `Commercial ->
-     	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
-     | `Industrial ->
-     	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
-     | `Parking ->
-     	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
-     | `Highway_pedestrian | `Highway_track
-     | `Highway_footway | `Highway_path ->
-           Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
-           Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
-     | `Highway_residential | `Highway_unclassified
-     | `Highway_living_street | `Highway_service ->
-         Cairo.set_source_rgb ctx 0.8 0.8 0.8
-     end;
+     set_surface_color ctx cat;
      Cairo.fill ctx
    in
    let small_area = truncate ((*64.*)16. *. (10_000_000. /. scale) ** 2.) in
@@ -1359,7 +1343,8 @@ let draw_map_intermediate_levels
    let partition = SP.make () in
    let landuse =
      SP.add_group partition
-       [`Forest; `Grass; `Farmland; `Residential; `Commercial;
+       [`Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
+        `Farmland; `Residential; `Commercial;
         `Industrial; `Park; `Cemetery; `Parking ]
    in
    let water = SP.add_group partition [`Water] in
@@ -1534,37 +1519,7 @@ let t = Unix.gettimeofday () in
    (* Draw surfaces *)
    let fill_surface cat =
      let cat = Surface.of_id cat in
-     begin match cat with
-       `Water ->
-     	   Cairo.set_source_rgb ctx 0.52 0.94 0.94
-     | `Building ->
-     	   Cairo.set_source_rgb ctx 0.6 0.6 0.6
-     | `Residential ->
-     	   Cairo.set_source_rgb ctx 0.91 0.94 0.94
-     | `Forest ->
-     	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
-     | `Grass ->
-     	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
-     | `Park ->
-     	   Cairo.set_source_rgb ctx 0.6 1.0 0.6
-     | `Farmland ->
-     	   Cairo.set_source_rgb ctx 0.69 0.94 0.27
-     | `Cemetery ->
-     	   Cairo.set_source_rgb ctx 0.67 0.8 0.69
-     | `Commercial ->
-     	   Cairo.set_source_rgb ctx 0.94 0.78 0.78
-     | `Industrial ->
-     	   Cairo.set_source_rgb ctx 0.87 0.82 0.85
-     | `Parking ->
-     	   Cairo.set_source_rgb ctx 0.97 0.94 0.72
-     | `Highway_pedestrian | `Highway_track
-     | `Highway_footway | `Highway_path ->
-           Cairo.set_source_surface ctx pedestrian_surface 0. 0.;
-           Cairo.Pattern.set_extend (Cairo.get_source ctx) Cairo.Pattern.REPEAT
-     | `Highway_residential | `Highway_unclassified
-     | `Highway_living_street | `Highway_service ->
-         Cairo.set_source_rgb ctx 0.8 0.8 0.8
-     end;
+     set_surface_color ctx cat;
      Cairo.fill ctx
    in
    let small_area = truncate ((*64.*)16. *. (10_000_000. /. scale) ** 2.) in
