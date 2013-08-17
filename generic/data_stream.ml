@@ -38,7 +38,7 @@ let group s =
     Empty ->
       Empty
   | Cons ((v, a), s) ->
-      let rec group_rec s v l =
+      let rec group_rec s v l : (int * 'a list) t =
 	match s () with
 	  Empty ->
 	    Cons ((v, List.rev l), fun () -> Empty)
@@ -61,7 +61,7 @@ let rec unique_join ?def1 s1 ?def2 s2 =
       Some def2 -> map (fun (i, v) -> (i, (v, def2))) s1
     | None      -> Empty
     end
-  and merge_rec i1 v1 s1 i2 v2 s2 =
+  and merge_rec i1 v1 s1 i2 v2 s2 : (int * ('a * 'b)) t =
     if i1 < i2 then begin
       match def2 with
 	Some def2 -> Cons ((i1, (v1, def2)), fun () -> refill_1 s1 i2 v2 s2)
