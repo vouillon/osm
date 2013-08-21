@@ -348,11 +348,11 @@ let polygon_mostly_in_polygon (px, py) (px', py') =
 (****)
 
 let dilate x =
-  let x = (x lor (x lsl 16)) land 0xFFFF0000FFFF in
-  let x = (x lor (x lsl 8)) land 0xFF00FF00FF00FF in
-  let x = (x lor (x lsl 4)) land 0xF0F0F0F0F0F0F0F in
-  let x = (x lor (x lsl 2)) land 0x333333333333333 in
-  let x = (x lor (x lsl 1)) land 0x555555555555555 in
+  let x = (x lor (x lsl 16)) land 0x0000FFFF0000FFFF in
+  let x = (x lor (x lsl 8)) land  0x00FF00FF00FF00FF in
+  let x = (x lor (x lsl 4)) land  0x0F0F0F0F0F0F0F0F in
+  let x = (x lor (x lsl 2)) land  0x3333333333333333 in
+  let x = (x lor (x lsl 1)) land  0x5555555555555555 in
   x
 
 let hilbert_coordinate x y =

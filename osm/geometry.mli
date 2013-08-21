@@ -42,4 +42,6 @@ val polygon_mostly_in_polygon :
 (***)
 
 val hilbert_coordinate : int -> int -> int
+      (* Any of the arguments: 32 bits; the other: 31 bits *)
 val z_order : int -> int -> int
+      (* First argument: 31 bits; second argument: 32 bits *)

@@ -19,7 +19,6 @@
 (*
 TODO
 ====
-- hilbert coordinate overflow???
 - simplification should depend on latitude
   (should be done after projection)
 *)
@@ -504,7 +503,7 @@ Format.eprintf "==> %d@." (List.length l);
          let (lon_min, lat_min, lon_max, lat_max) = ring_bbox p in
          let lat = truncate ((lat_min +. lat_max) /. 2.) +  90_0000000 in
          let lon = truncate ((lon_min +. lon_max) /. 2.) + 180_0000000 in
-         (Geometry.hilbert_coordinate (lat / 2) (lon / 4), p))
+         (Geometry.hilbert_coordinate lat lon, p))
       a
   in
   Array.sort (fun (x, _) (x', _) -> compare x x') a;
