@@ -17,9 +17,7 @@
  *)
 
 (*XXXX
- - Parse relations
  - Check required features
- - Parallelize
 *)
 
 let _ = Printexc.record_backtrace true
@@ -43,9 +41,16 @@ let b4 ch =
   let c3 = i1 ch in
   c0 lsl 24 + c1 lsl 16 + c2 lsl 8 + c3
 
-let uncompress s =
-  let tr = Cryptokit.Zlib.uncompress () in
-  tr#put_substring s 2 (String.length s - 6); tr#finish; tr#get_string
+let uncompress sz inbuf =
+  let zs = Zlib.inflate_init true in
+  let outbuf = String.create sz in
+  let (finished, used_in, used_out) =
+    Zlib.inflate zs inbuf 0 (String.length inbuf) outbuf 0 sz Zlib.Z_SYNC_FLUSH
+  in
+  assert finished;
+  assert (used_out = sz);
+  assert (used_in = String.length inbuf);
+  outbuf
 
 let (>>) x f = f x
 
@@ -70,8 +75,11 @@ let parse_blob ch =
 
   let b = Protobuf.buffer_from_channel ch datasize in
   let m = Protobuf.parse blob_spec b in
+  let raw_size = Protobuf.int_field m 2 in
   let zlib_data = Protobuf.string_field m 3 in
-  let data = uncompress zlib_data in
+
+
+  let data = uncompress raw_size zlib_data in
 
   (typ, data)
 

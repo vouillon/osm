@@ -1,9 +1,11 @@
-
 Installation
 ============
 
-The following external libraries are needed: cryptokit, cairo, lablgtk.
 This software only works on 64-bit machines.
+The following external libraries are needed: camlzip, cairo, lablgtk.
+They can be install through opam:
+
+   opam install camlzip cairo lablgtk
 
 To compile, just type 'make'.
 

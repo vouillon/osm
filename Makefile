@@ -4,7 +4,7 @@ OCAMLLEX=ocamllex
 OCAMLYACC=ocamlyacc -v
 OCAMLDEP=ocamldep
 
-OPTCOMPFLAGS =-package cryptokit,bigarray,unix,cairo2.lablgtk2 -inline 3 -g \
+OPTCOMPFLAGS =-package zip,bigarray,unix,cairo2.lablgtk2 -inline 3 -g \
   $(DIRS)
 COMPFLAGS = $(DIRS)
 DEPFLAGS= $(DIRS)
