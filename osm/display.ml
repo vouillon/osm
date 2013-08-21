@@ -409,13 +409,12 @@ if v then Format.eprintf "----@.";
 
 (* R-tree containing linear features *)
 
+let linear_leaf_read = ref 0
+
 let linear_ratio = 50
 
-let (leaves, linear_rtree) =
-  Rtree.open_in (Column.file_in_database "linear/rtrees/large")
-let leaves = open_in leaves
-
 let decode_leaf ratio leaves i =
+  incr linear_leaf_read;
   let leaf_size = 2048 in
   let buf = String.create leaf_size in
   seek_in leaves (i * leaf_size);
@@ -489,15 +488,82 @@ let find_linear_features level x_min y_min x_max y_max =
 
 (****)
 
+let coastline_leaf_size = 2048
+
+let decode_coastline ratio leaves i =
+  let buf = String.create coastline_leaf_size in
+  seek_in leaves (i * coastline_leaf_size);
+  really_input leaves buf 0 coastline_leaf_size;
+  let n = read_int_2 buf 0 in
+  let pos = ref (2 + 2 * n) in
+  let lat = ref 0 in
+  let lon = ref 0 in
+  let ways = ref [] in
+  for i = 0 to n - 1 do
+    let l = read_int_2 buf (2 + 2 * i) in
+    let x = Array.make (l + 1) 0. in
+    let y = Array.make (l + 1) 0. in
+    for j = 0 to l - 1 do
+      lat := !lat + read_signed_varint buf pos;
+      lon := !lon + read_signed_varint buf pos;
+(*if j = 0 then Format.eprintf "%d %d@." !lon !lat;*)
+      x.(j) <- float (!lon * ratio);
+      y.(j) <- Geometry.lat_to_y (float (!lat * ratio));
+    done;
+    x.(l) <- x.(0);
+    y.(l) <- y.(0);
+    ways := (x, y) :: !ways
+  done;
+  Array.of_list !ways
+
+let decode_coastline ratio leaves =
+  Lru_cache.funct cache
+    (fun i -> decode_coastline ratio leaves i)
+
+let open_tree name =
+  let ch = open_in (Column.file_in_database (Filename.concat name "ratio")) in
+  let ratio = int_of_string (input_line ch) in
+  close_in ch;
+  let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
+  let leaves = open_in leaves in
+  (ratio, decode_coastline ratio leaves, tree)
+
+let rtrees =
+  if Sys.file_exists (Column.file_in_database "coastline/rtrees/2") then
+    [((-1., 2.), open_tree "coastline/rtrees/2");
+     ((2., 4.), open_tree "coastline/rtrees/4");
+     ((4., 6.), open_tree "coastline/rtrees/6");
+     ((6., 8.), open_tree "coastline/rtrees/8");
+     ((8., 30.), open_tree "coastline/rtrees/small")]
+  else
+    []
+
+let find_coastline level x_min y_min x_max y_max =
+  let lst = ref [] in
+  List.iter
+    (fun ((min_level, max_level), (ratio, decode, tree)) ->
+       if level > min_level && level <= max_level then begin
+         let bbox = bounding_box ratio x_min y_min x_max y_max in
+         Rtree.find tree bbox
+           (fun i -> lst := decode i :: !lst)
+       end)
+    rtrees;
+  Array.concat !lst
+
+(****)
+
 (* R-tree containing surfaces *)
 
 let surface_leaf_size = 2048
+
+let surface_leaf_read = ref 0
 
 let decode_surfaces ratio leaves i =
   let buf = String.create surface_leaf_size in
   seek_in leaves (i * surface_leaf_size);
   really_input leaves buf 0 surface_leaf_size;
   let len = read_int_2 buf 0 in
+  surface_leaf_read := !surface_leaf_read + len;
   let buf =
     if len > 1 then begin
       let buf' = String.create (surface_leaf_size * len) in
@@ -792,6 +858,22 @@ let set_surface_color ctx cat =
   | `Highway_residential | `Highway_unclassified
   | `Highway_living_street | `Highway_service ->
       Cairo.set_source_rgb ctx 0.8 0.8 0.8
+
+(****)
+
+let draw_coastline st ctx coastline x_min y_min x_max y_max =
+  let scale = compute_scale st in
+  let coeff = scale /. 10_000_000. in
+  Array.iter
+    (fun (x, y) ->
+       Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+       for i = 1 to Array.length x - 2 do
+         Cairo.line_to ctx (x.(i) *. coeff) (y.(i) *. coeff)
+       done;
+       Cairo.Path.close ctx)
+    coastline;
+  Cairo.set_source_rgb ctx 0.52 0.94 0.94;
+  Cairo.fill ctx
 
 (****)
 
@@ -1596,6 +1678,18 @@ let t = Unix.gettimeofday () in
     find_linear_features st.level lon_min lat_min lon_max lat_max in
 if debug_time then
 Format.eprintf "Loading lines: %.3f@." (Unix.gettimeofday () -. t);
+
+   (* Load coastline *)
+let t = Unix.gettimeofday () in
+  let coastline =
+    find_coastline st.level lon_min lat_min lon_max lat_max in
+if debug_time then
+Format.eprintf "Loading coastline: %.3f@." (Unix.gettimeofday () -. t);
+
+if debug_time then
+Format.eprintf "Surfaces: %d / lines: %d@." (2 * !surface_leaf_read) (2 * !linear_leaf_read);
+
+  draw_coastline st ctx coastline lon_min lat_min lon_max lat_max;
   if st.level >= 14.5 then
     draw_map_high_levels st ctx surfaces linear_features
   else if st.level >= 13.5 then
@@ -1726,6 +1820,7 @@ ignore (display#event#connect#map
 *)
 ignore (display#event#connect#expose
   (fun ev ->
+let t = Unix.gettimeofday () in
      let area = GdkEvent.Expose.area ev in
      let x = Gdk.Rectangle.x area in
      let y = Gdk.Rectangle.y area in
@@ -1825,6 +1920,7 @@ ignore (display#event#connect#expose
      Cairo.restore ctx;
      Cairo.clip ctx;
      draw_route st ctx;
+Format.eprintf "Redraw: %f@." (Unix.gettimeofday () -. t);
      true));
 
 let pos = ref None in

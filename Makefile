@@ -8,7 +8,7 @@ OPTCOMPFLAGS =-package cryptokit,bigarray,unix,cairo2.lablgtk2 -inline 3 -g \
   $(DIRS)
 COMPFLAGS = $(DIRS)
 DEPFLAGS= $(DIRS)
-OPTLINKFLAGS=$(OPTCOMPFLAGS) -linkpkg -unsafe
+OPTLINKFLAGS=$(OPTCOMPFLAGS) -linkpkg #-unsafe
 
 #####
 
@@ -33,7 +33,7 @@ DIRS=-I generic -I database -I osm
 OBJS= $(addprefix generic/,$(GENERIC)) $(addprefix database/,$(DATABASE)) \
       $(addprefix osm/,$(OSM))
 
-BINARIES=query load multipolygons linear surfaces highway contraction display
+BINARIES=query load multipolygons linear surfaces highway contraction display coastline
 
 all: $(BINARIES)
 
@@ -59,6 +59,9 @@ contraction: $(OBJS) osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/category.cmx osm/display.cmx
+	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
+
+coastline: $(OBJS) osm/category.cmx osm/douglas_peucker.cmx osm/clipping.cmx osm/coastline.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 clean::

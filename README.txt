@@ -91,12 +91,20 @@ Preprocessing
 The five following operations need to be performed before being able
 to display the map:
 - extract multipolygons:                               ./multipolygons
-- build a R-tree of surfaces:                          ./surfaces
-- build a R-tree of linear features:                   ./linear
+- build surface R-trees:                               ./surfaces
+- build R-trees of linear features:                    ./linear
 - build the routing graph:                             ./highway
 - preprocess the routing graph:                        ./contraction
   (we use so-called contraction hierarchies to speed-up route
   searches)
+
+Optionally, you can include the coastline data:
+- download coastlines-split-4326.zip from
+  http://openstreetmapdata.com/data/coastlines
+  (shapefile format, containing linestrings in WGS84 projection)
+- unzip the file
+- build the coastline R-trees:
+  ./coastline /path/to/coastlines-split-4326/lines.shp
 
 Map display
 -----------
