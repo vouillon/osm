@@ -106,7 +106,7 @@ Optionally, you can include the coastline data:
   (shapefile format, containing linestrings in WGS84 projection)
 - unzip the file
 - build the coastline R-trees:
-  ./coastline /path/to/coastlines-split-4326/lines.shp
+    ./coastline /path/to/coastlines-split-4326.zip
 
 Map display
 -----------

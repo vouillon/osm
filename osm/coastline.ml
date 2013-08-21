@@ -114,22 +114,20 @@ Format.eprintf "%f %f - %f %f@." x.(0) y.(0) x.(len - 1) y.(len - 1);
   !lst
 
 let read_record ch =
-  let pos = pos_in ch in
   let num = read_big_int ch in
-  ignore num;
   let len = read_big_int ch in
+  ignore (num, len);
   let typ = read_lit_int ch in
-
   assert (typ = 3); (* polyline *)
 
-  seek_in ch (pos_in ch + 32);
-  let num_parts = read_lit_int ch in
+  for i = 0 to 3 do ignore (read_float ch) done; (* bbox *)
 
+  let num_parts = read_lit_int ch in
   assert (num_parts = 1);
 
   let num_points = read_lit_int ch in
 
-  seek_in ch (pos_in ch + 4 * num_parts);
+  ignore (read_lit_int ch); (* first and unique part *)
 
   let lon = Array.make (num_points - 1) 0. in
   let lat = Array.make (num_points - 1) 0. in
@@ -140,18 +138,47 @@ let read_record ch =
   done;
   let lon0 = 10_000_000. *. read_float ch in
   let lat0 = 10_000_000. *. read_float ch in
-  seek_in ch (pos + 8 + 2 * len);
   ((lon, lat), (lon0, lat0))
+
+let open_file () =
+  let ch = open_in Sys.argv.(1) in
+  let magic = read_big_int ch in
+  if magic = 9994 then begin
+    seek_in ch 0;
+    ch
+  end else if magic = 0x504b0304 then begin
+    close_in ch;
+    let z = Zip.open_in Sys.argv.(1) in
+    let e =
+      try
+        Zip.find_entry z "coastlines-split-4326/lines.shp"
+      with Not_found ->
+        Util.fail "Zip entry 'coastlines-split-4326/lines.shp' not found"
+    in
+    let (r, w) = Unix.pipe () in
+    match Unix.fork () with
+      0 ->
+        Unix.close r;
+        let ch = Unix.out_channel_of_descr w in
+        Zip.copy_entry_to_channel z e ch;
+        flush ch;
+        exit 0
+    | _ ->
+        Unix.close w;
+        Unix.in_channel_of_descr r
+  end else
+    Util.fail (Format.sprintf "bad file format")
 
 let load () =
   Format.eprintf "==== Loading.@.";
 
-  let ch = open_in Sys.argv.(1) in
+  let ch = open_file () in
 
-  assert (read_big_int ch = 9994);
+  for i = 0 to 24 do
+    ignore (read_big_int ch)
+  done;
 
 (*
-  seek_in ch 36;
   let a = read_float ch in 
   Format.eprintf "%f@." a;
   let a = read_float ch in 
@@ -161,8 +188,6 @@ let load () =
   let a = read_float ch in 
   Format.eprintf "%f@." a;
 *)
-
-  seek_in ch 100;
 
   let lst = ref [] in
   let cur = ref [] in
@@ -465,6 +490,7 @@ let rescale_ring ratio (lon, lat) =
 
 let build_rtree name ratio polys =
   Format.eprintf "==== Splitting.@.";
+  next_perc := 0.005;
   let l = split_rec true (Unix.gettimeofday ()) 0. 1. polys [] in
   Util.set_msg "";
 (*
