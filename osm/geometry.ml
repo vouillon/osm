@@ -369,7 +369,7 @@ let hilbert_coordinate x y =
       ((!v0 land (!v1 lxor notx)) lor ((lnot !v0) land (!v1 lxor noty))) lsr 1;
   done;
   let hodd = ((lnot !v0) land (!v1 lxor x)) lor (!v0 land (!v1 lxor noty)) in
-  ((dilate hodd) lsl 1) lor (dilate heven)
+  ((dilate hodd) lsl 1) lor (dilate heven) - min_int
 
 (* Faster to compute but not as good as Hilbert coordinates *)
-let z_order x y = (((dilate x) lsl 1) lor (dilate y))
+let z_order x y = (((dilate x) lsl 1) lor (dilate y)) - min_int
