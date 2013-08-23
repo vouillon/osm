@@ -538,6 +538,8 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
 	   incr n)
 	inner_ways;
       pos := pos';
+      let max x y : int = if x > y then x else y in
+      let min x y : int = if x > y then y else x in
       let bbox' =
         { Bbox.
           min_lat = Array.fold_left min max_int (fst outer_way);
