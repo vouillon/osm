@@ -33,7 +33,7 @@ DIRS=-I generic -I database -I osm
 OBJS= $(addprefix generic/,$(GENERIC)) $(addprefix database/,$(DATABASE)) \
       $(addprefix osm/,$(OSM))
 
-BINARIES=query load multipolygons linear surfaces highway contraction display coastline
+BINARIES=query load multipolygons linear surfaces highway contraction display coastline line_simpl
 
 all: $(BINARIES)
 
@@ -62,6 +62,9 @@ display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx 
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 coastline: $(OBJS) osm/category.cmx osm/douglas_peucker.cmx osm/clipping.cmx osm/coastline.cmx
+	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
+
+line_simpl: $(OBJS) osm/douglas_peucker.cmx osm/category.cmx osm/line_simpl.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 clean::

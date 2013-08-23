@@ -18,3 +18,5 @@
 
 val perform : float -> float array -> float array -> float array * float array
 val perform_int : int -> int array -> int array -> int array * int array
+
+val perform_int_index : int -> int array -> int array -> int array

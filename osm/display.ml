@@ -411,8 +411,6 @@ if v then Format.eprintf "----@.";
 
 let linear_leaf_read = ref 0
 
-let linear_ratio = 50
-
 let decode_leaf ratio leaves i =
   incr linear_leaf_read;
   let leaf_size = 2048 in
@@ -429,10 +427,10 @@ let decode_leaf ratio leaves i =
   let lon = ref 0 in
   while !pos < node_len + 4 do
     let v = !lat + read_signed_varint buf pos in
-    y.(!i) <- Geometry.lat_to_y (float (v * linear_ratio));
+    y.(!i) <- Geometry.lat_to_y (float (v * ratio));
     lat := v;
     let v = !lon + read_signed_varint buf pos in
-    x.(!i) <- float (v * linear_ratio);
+    x.(!i) <- float (v * ratio);
     lon := v;
     incr i
   done;
@@ -461,19 +459,31 @@ let cache = Lru_cache.make 1000
 
 let decode_leaf ratio leaves =
   Lru_cache.funct cache
-    (fun i -> build_paths (decode_leaf linear_ratio leaves i))
+    (fun i -> build_paths (decode_leaf ratio leaves i))
 
 let open_tree name =
-  let ratio = linear_ratio in
+  let ch = open_in (Column.file_in_database (Filename.concat name "ratio")) in
+  let ratio = int_of_string (input_line ch) in
+  close_in ch;
   let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
   let leaves = open_in leaves in
-  (linear_ratio, decode_leaf ratio leaves, tree)
+  (ratio, decode_leaf ratio leaves, tree)
 
 let rtrees =
-  [((-1., 11.5), open_tree "linear/rtrees/large_3");
-   ((11.5, 12.5), open_tree "linear/rtrees/large_2");
-   ((12.5, 13.5), open_tree "linear/rtrees/large_1");
-   ((13.5, 30.), open_tree "linear/rtrees/all")]
+  [((-1., 6.), open_tree "linear/rtrees/06");
+   ((6., 8.), open_tree "linear/rtrees/08");
+   ((8., 10.), open_tree "linear/rtrees/10");
+(*
+   ((-1., 11.), open_tree "linear/rtrees/large_3");
+   ((11., 12.), open_tree "linear/rtrees/large_2");
+   ((12., 13.), open_tree "linear/rtrees/large_1");
+*)
+   ((10., 11.), open_tree "linear/rtrees/11");
+   ((11., 12.), open_tree "linear/rtrees/12");
+   ((12., 13.), open_tree "linear/rtrees/13");
+   ((13., 14.), open_tree "linear/rtrees/14");
+   ((14., 15.), open_tree "linear/rtrees/15");
+   ((15., 30.), open_tree "linear/rtrees/all")]
 
 let find_linear_features level x_min y_min x_max y_max =
   let lst = ref [] in
@@ -1472,6 +1482,7 @@ let t = Unix.gettimeofday () in
    let major_roads = LP.add_group partition major_road_cats in
    let highways = LP.add_group partition highway_cats in
 
+(*
 let linear_features =
   let eps = (10_000_000. /. scale) in
   Array.map
@@ -1482,6 +1493,7 @@ let linear_features =
          (info, List.filter (fun (x, y) -> Array.length x > 0) (List.map (fun (x, y) -> Douglas_peucker.perform eps x y) ways)))
     linear_features
 in
+*)
 (**)
 let linear_features' = linear_features in
    let linear_features =
@@ -1690,14 +1702,14 @@ if debug_time then
 Format.eprintf "Surfaces: %d / lines: %d@." (2 * !surface_leaf_read) (2 * !linear_leaf_read);
 
   draw_coastline st ctx coastline lon_min lat_min lon_max lat_max;
-  if st.level >= 14.5 then
+  if st.level > 14. then
     draw_map_high_levels st ctx surfaces linear_features
-  else if st.level >= 13.5 then
+  else if st.level > 13. then
     draw_map_medium_levels st ctx surfaces linear_features
-  else if st.level >= 12.5 then
+  else if st.level > 12. then
     draw_map_intermediate_levels
       st ctx partition_high surfaces linear_features
-  else if st.level >= 11.5 then
+  else if st.level > 11. then
     draw_map_intermediate_levels
       st ctx partition_medium surfaces linear_features
   else
@@ -1706,6 +1718,7 @@ Format.eprintf "Surfaces: %d / lines: %d@." (2 * !surface_leaf_read) (2 * !linea
 
 (****)
 
+let linear_ratio = 50
 let draw_route st ctx =
    let scale = compute_scale st in
    Cairo.scale ctx 1. (-1.);

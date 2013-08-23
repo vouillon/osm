@@ -16,6 +16,13 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+(*
+TODO
+====
+* More compact representation
+*)
+
+
 (* Linear features *)
 
 let leaf_size = 2048
@@ -436,11 +443,15 @@ Format.eprintf "Build R-tree@.";
 
 
   let rtrees = ref [] in
-  let open_rtree name =
+  let open_rtree ratio name =
     let node_buf = String.create (16 * 1024) in
     let edge_buf = String.create (16 * 1024) in
 
     let (leaves, tree) = Rtree.open_out name in
+    let ch =
+      open_out (Column.file_in_database (Filename.concat name "ratio")) in
+    Printf.fprintf ch "%d\n" ratio;
+    close_out ch;
     let leaves = open_out leaves in
 
     let new_state () =
@@ -478,9 +489,10 @@ Format.eprintf "Build R-tree@.";
   Bbox.min_lon = 0; Bbox.max_lon = 0x7fffffff }
   *)
     in
+    let delta = ratio / 2 - 1 in
     let write_node st n lat lon =
-      let lat = (lat + 24) / 50 in
-      let lon = (lon + 24) / 50 in
+      let lat = (lat + delta) / ratio in
+      let lon = (lon + delta) / ratio in
       st.node_pos <- write_signed_varint node_buf st.node_pos (lat - st.node_lat);
       st.node_lat <- lat;
       st.node_pos <- write_signed_varint node_buf st.node_pos (lon - st.node_lon);
@@ -552,10 +564,10 @@ Format.eprintf "miss: %d/%d@." !miss !num
       st := write_edge !st n1 lat1 lon1 n2 lat2 lon2 cat lay
   in
 
-  let write_edge = open_rtree "linear/rtrees/all" in
-  let write_large_edge_1 = open_rtree "linear/rtrees/large_1" in
-  let write_large_edge_2 = open_rtree "linear/rtrees/large_2" in
-  let write_large_edge_3 = open_rtree "linear/rtrees/large_3" in
+  let write_edge = open_rtree 50 "linear/rtrees/all" in
+  let write_large_edge_1 = open_rtree 50 "linear/rtrees/large_1" in
+  let write_large_edge_2 = open_rtree 50 "linear/rtrees/large_2" in
+  let write_large_edge_3 = open_rtree 50 "linear/rtrees/large_3" in
 
   let write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay =
     write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay;
