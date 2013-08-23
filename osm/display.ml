@@ -525,6 +525,9 @@ let decode_coastline ratio leaves =
   Lru_cache.funct cache
     (fun i -> decode_coastline ratio leaves i)
 
+let decode_coastline ratio leaves i =
+  Format.eprintf "%d@." i; decode_coastline ratio leaves i
+
 let open_tree name =
   let ch = open_in (Column.file_in_database (Filename.concat name "ratio")) in
   let ratio = int_of_string (input_line ch) in
@@ -866,16 +869,74 @@ let set_surface_color ctx cat =
 
 (****)
 
+let is_out st x y =
+  let scale = compute_scale st in
+  let coeff = scale /. 10_000_000. in
+  let l = Array.length x in
+  let out = ref false in
+  let x' = (-10_000. +. float st.rect.x) /. coeff in
+  let b = ref false in
+  for i = 0 to l - 1 do
+    if x.(i) > x' then b := true
+  done;
+  if not !b then out := true;
+  let x' = (10_000. +. float st.rect.x) /. coeff in
+  let b = ref false in
+  for i = 0 to l - 1 do
+    if x.(i) < x' then b := true
+  done;
+  if not !b then out := true;
+  let y' = (-10_000. -. float st.rect.y) /. coeff in
+  let b = ref false in
+  for i = 0 to l - 1 do
+    if y.(i) > y' then b := true
+  done;
+  if not !b then out := true;
+  let y' = (10_000. -. float st.rect.y) /. coeff in
+  let b = ref false in
+  for i = 0 to l - 1 do
+    if y.(i) < y' then b := true
+  done;
+  if not !b then out := true;
+  !out
+
 let draw_coastline st ctx coastline x_min y_min x_max y_max =
   let scale = compute_scale st in
   let coeff = scale /. 10_000_000. in
   Array.iter
     (fun (x, y) ->
+if not (is_out st x y) then begin
+let xmin = ref max_float in
+let xmax = ref (-. max_float) in
+let ymin = ref max_float in
+let ymax = ref (-. max_float) in
        Cairo.move_to ctx (x.(0) *. coeff) (y.(0) *. coeff);
+let x' = x.(0) in
+let y' = y.(0) in
+(*Format.eprintf "%f %f@." ()  (y.(i) *. coeff +. float st.rect.y);*)
+if x' < !xmin then xmin := x';
+if x' > !xmax then xmax := x';
+if y' < !ymin then ymin := y';
+if y' > !ymax then ymax := y';
        for i = 1 to Array.length x - 2 do
+let x' = x.(i) in
+let y' = y.(i) in
+(*Format.eprintf "%f %f@." ()  (y.(i) *. coeff +. float st.rect.y);*)
+if x' < !xmin then xmin := x';
+if x' > !xmax then xmax := x';
+if y' < !ymin then ymin := y';
+if y' > !ymax then ymax := y';
          Cairo.line_to ctx (x.(i) *. coeff) (y.(i) *. coeff)
        done;
-       Cairo.Path.close ctx)
+(*
+Format.eprintf "%f %f / %f %f@." !xmin !xmax !ymin !ymax;
+Format.eprintf "%f %f / %f %f@." (!xmin *. coeff -. float st.rect.x) (!xmax *. coeff -. float st.rect.x) (!ymin *. coeff +. float st.rect.y) (!ymax *. coeff +. float st.rect.y);
+let x = truncate (!xmin +. !xmax) / 2 + 180_0000000 in
+let y = truncate (Geometry.y_to_lat !ymin +. Geometry.y_to_lat !ymax) / 2 + 90_0000000 in
+Format.eprintf "%x (%x / %x)@." (Geometry.hilbert_coordinate y x) y x;
+*)
+       Cairo.Path.close ctx
+end)
     coastline;
   Cairo.set_source_rgb ctx 0.52 0.94 0.94;
   Cairo.fill ctx
@@ -1800,7 +1861,9 @@ let display =
   GMisc.drawing_area
     ~packing:(table#attach ~left:0 ~top:0 ~fill:`BOTH ~expand:`BOTH) () in
 display#misc#set_can_focus true;
+(*
 display#misc#set_double_buffered false;
+*)
 
 let queue_draw () = GtkBase.Widget.queue_draw display#as_widget in
 let refresh () =
