@@ -28,7 +28,9 @@ type ('a, 'b) kind
 
 val char : (char, Bigarray.int8_unsigned_elt) kind
 val int8_unsigned : (int, Bigarray.int8_unsigned_elt) kind
+val int16_unsigned : (int, Bigarray.int16_unsigned_elt) kind
 val int32 : (int32, Bigarray.int32_elt) kind
+val int : (int, Bigarray.int_elt) kind
 
 (****)
 

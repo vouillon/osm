@@ -152,3 +152,6 @@ Simultaneous & topologically-safe line simplification for a
 variable-scale planar partition
 Snakes: a technique for line smoothing and displacement in map
 generalisation
+
+Optimal and Topologically Safe Simplification of Building Footprints
+Automated building simplification using recursive approach

@@ -17,6 +17,11 @@
  *)
 
 (*
+* aeroway=runway can be a surface
+
+* When a leaf bounding box is very large, perform clipping of the
+  objects it contains, to avoid rendering artifacts (Cairo uses
+  integers internally, +/- 8 millions, bug #20091)
 
 * Redesign R-tree of linear features
 

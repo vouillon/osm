@@ -65,9 +65,11 @@ let close_out s = Unix.ftruncate s.ch s.len; Unix.close s.ch
 
 type ('a, 'b) kind = ('a, 'b) Bigarray.kind * int
 
-let int8_unsigned = (Bigarray.int8_unsigned, 1)
 let char = (Bigarray.char, 1)
+let int8_unsigned = (Bigarray.int8_unsigned, 1)
+let int16_unsigned = (Bigarray.int16_unsigned, 2)
 let int32 = (Bigarray.int32, 4)
+let int = (Bigarray.int, 8)
 
 (****)
 
