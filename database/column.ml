@@ -28,7 +28,7 @@ x * 8 bytes: trailer: chunk positions
 
 (****)
 
-let magic = "COLUMN:\n"
+let magic = "COLUMN0\n"
 
 (****)
 
@@ -85,13 +85,16 @@ let read_signed_varint a p = sint_of_int (read_varint a p)
 
 (****)
 
-let map_incr = 8 * 1024 * 1024
-
-let block_size = 8192
+let block_size = 6 * 1024
 let chunk_size = 64
-let chunk_count = block_size / chunk_size
 
-let max_overhead = block_size * 8 + 2 * chunk_count
+let map_incr = 8 * 1024 * 1024
+let chunk_count = block_size / chunk_size
+let max_overhead = block_size * 10 + 2 * chunk_count
+
+let _ =
+  assert (10 * block_size - chunk_size < 65536);
+  assert (block_size mod chunk_size = 0)
 
 (****)
 
