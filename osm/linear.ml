@@ -22,6 +22,8 @@ let leaf_size = 2048
 
 (****)
 
+let _ = Printexc.record_backtrace true
+
 let _ = Column.set_database "/tmp/osm"
 
 (****)
@@ -249,6 +251,16 @@ Format.eprintf "Used nodes@.";
   in
 
 Format.eprintf "Associated latitude and longitude.@.";
+  let map_sorted input =
+    let l = Column.length input in
+    fun renaming output ->
+    let (o, _) =
+      Join.perform renaming ~o1:output
+        (Column.identity (Column.length renaming)) (Column.identity l) input
+    in
+    assert (Column.length o = l);
+    o
+  in
   let map input =
     let l = Column.length input in
     let (o, o') = Sorting.perform input (Column.identity l) in
@@ -258,7 +270,7 @@ Format.eprintf "Associated latitude and longitude.@.";
     assert (Column.length o = l);
     snd (Sorting.perform ~o2:output o' o)
   in
-  let m = map (Column.open_in (Column.named "linear" "node/idx")) in
+  let m = map_sorted (Column.open_in (Column.named "linear" "node/idx")) in
   let lat =
     m (Column.open_in (Column.named "base" "node/lat"))
       (Column.named "linear" "node/lat")
