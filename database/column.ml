@@ -19,7 +19,7 @@
 (*
 File layout
 ===========
-8 byte: magic number "COLUMN:\n"
+8 byte: magic number "COLUMN0\n"
 8 byte: number of elements
 8 byte: pointer to trailer
         compressed data
@@ -515,4 +515,4 @@ let is_column nm =
   let s = String.make 8 ' ' in
   ignore (input ch s 0 8);
   close_in ch;
-  s = "COLUMN:\n"
+  s = magic
