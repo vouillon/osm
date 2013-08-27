@@ -20,13 +20,13 @@ let unique o i =
   let i = Column.stream i in
   let rec loop last =
     let v = Column.read i in
-    if v <> max_int then begin
+    if v <> max_int || not (Column.beyond_end_of_stream i) then begin
       if v <> last then Column.append o v;
       loop v
     end
   in
   let v = Column.read i in
-  if v <> max_int then begin
+  if v <> max_int || not (Column.beyond_end_of_stream i) then begin
     Column.append o v;
     loop v
   end;
@@ -45,11 +45,12 @@ let group o1 o2 f i1 i2 =
     else begin
       Column.append o1 v1;
       Column.append o2 v2;
-      if v1' <> max_int then loop v1' v2'
+      if v1' <> max_int || not (Column.beyond_end_of_stream i1) then
+        loop v1' v2'
     end
   in
   let v1 = Column.read i1 in
-  if v1 <> max_int then begin
+  if v1 <> max_int || not (Column.beyond_end_of_stream i1) then begin
     let v2 = Column.read i2 in
     loop v1 v2
   end;
@@ -66,7 +67,7 @@ let build_index o i =
     end else begin
       assert (j = j');
       let j' = Column.read i in
-      if j' = max_int then
+      if j' = max_int && Column.beyond_end_of_stream i then
         Column.append o (k + 1)
       else
         loop j j' (k + 1)
@@ -80,7 +81,7 @@ let build_index = Column.with_spec build_index "index"
 let union o l =
   let rec loop i =
     let v = Column.read i in
-    if v <> max_int then begin
+    if v <> max_int || not (Column.beyond_end_of_stream i) then begin
       Column.append o v;
       loop i
     end
@@ -94,7 +95,7 @@ let map o f i =
   let i = Column.stream i in
   let rec loop () =
     let v = Column.read i in
-    if v <> max_int then begin
+    if v <> max_int || not (Column.beyond_end_of_stream i) then begin
       Column.append o (f v);
       loop ()
     end
@@ -109,7 +110,7 @@ let map_2 o f i1 i2 =
   let i2 = Column.stream i2 in
   let rec loop () =
     let v1 = Column.read i1 in
-    if v1 <> max_int then begin
+    if v1 <> max_int || not (Column.beyond_end_of_stream i1) then begin
       let v2 = Column.read i2 in
       Column.append o (f v1 v2);
       loop ()

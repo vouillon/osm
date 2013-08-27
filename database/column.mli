@@ -49,6 +49,10 @@ val stream : ?first:int -> ?last:int -> t -> input_stream
 val read : input_stream -> int (* returns [max_int] at end of stream *)
 val seek : input_stream -> int -> unit
 val position : input_stream -> int
+val at_end_of_stream : input_stream -> bool
+  (* We are at the end of the stream *)
+val beyond_end_of_stream : input_stream -> bool
+  (* We are at the end of the stream and have read the sentinel *)
 
 (****)
 

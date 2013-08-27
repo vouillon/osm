@@ -26,7 +26,10 @@ let t = Unix.gettimeofday () in
 (*
 Format.eprintf "%d %d@." v1 v2;
 *)
-    if v1 = max_int && v2 = max_int then
+    if
+      v1 = max_int && v2 = max_int &&
+      Column.beyond_end_of_stream b1 && Column.beyond_end_of_stream b2
+    then
       (*XXX Could stop sooner when def1 and/or def2 is not set. *)
       ()
     else if v1 < v2 then begin

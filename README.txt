@@ -131,13 +131,11 @@ Data is stored using three possible formats:
 
 Columns
 -------
+Columns contain 63-bit integers.
+
 Columns are compressed by performing a delta encoding and using a
 variable-length encoding. This considerably reduces the disk memory
 usage and speeds up I/Os.
-
-Columns contain 63-bit integers. One should avoid to store 'max_int'
-in a column, as it used as a sentinel when reading the column
-sequentially.
 
 A number of operations are implemented to process columns in an
 efficient manner: one can read sequentially the contents of a column,

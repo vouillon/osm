@@ -20,7 +20,7 @@ let filter output input v =
   let input = Column.stream input in
   let rec filter_rec i =
     let v' = Column.read input in
-    if v' <> max_int then begin
+    if v' <> max_int || not (Column.beyond_end_of_stream input) then begin
       if v' = v then
         Column.append output i;
       filter_rec (i + 1)
@@ -35,7 +35,7 @@ let filter_pred output input p =
   let input = Column.stream input in
   let rec filter_rec i =
     let v = Column.read input in
-    if v <> max_int then begin
+    if v <> max_int || not (Column.beyond_end_of_stream input) then begin
       if p v then
         Column.append output i;
       filter_rec (i + 1)
@@ -52,13 +52,13 @@ let filter_pred_2 output input1 input2 p =
   let rec filter_rec i =
     let v1 = Column.read input1 in
     let v2 = Column.read input2 in
-    if v1 <> max_int then begin
-      assert (v2 <> max_int);
+    if v1 <> max_int || not (Column.beyond_end_of_stream input1) then begin
+      assert (v2 <> max_int || not (Column.beyond_end_of_stream input2));
       if p v1 v2 then
         Column.append output i;
       filter_rec (i + 1)
     end else
-      assert (v2 = max_int)
+      assert (v2 = max_int && Column.beyond_end_of_stream input2)
   in
   filter_rec 0;
   Column.freeze output
@@ -70,7 +70,7 @@ let project output index input =
   let input = Column.stream input in
   let rec project_rec i =
     let i' = Column.read index in
-    if i' <> max_int then begin
+    if i' <> max_int || not (Column.beyond_end_of_stream index) then begin
       assert (i <= i');
       if i' - i > 5 then
         Column.seek input i'
@@ -95,7 +95,9 @@ let inter output input1 input2 =
       inter_rec (Column.read input1) v2
     else if v2 < v1 then
       inter_rec v1 (Column.read input2)
-    else if v1 <> max_int then begin
+    else if
+      v1 <> max_int || not (Column.beyond_end_of_stream input1)
+    then begin
       Column.append output v1;
       inter_rec (Column.read input1) (Column.read input2)
     end
@@ -112,7 +114,7 @@ let diff output input1 input2 =
     if v1 < v2 then begin
       Column.append output v1;
       diff_rec (Column.read input1) v2
-    end else if v1 = max_int then
+    end else if v1 = max_int && Column.beyond_end_of_stream input1 then
       ()
     else if v2 < v1 then
       diff_rec v1 (Column.read input2)

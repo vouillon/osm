@@ -433,6 +433,7 @@ type input_stream =
   { mutable i : int;
     mutable l : int;
     a : int array;
+    mutable eos : bool;
     mutable pos : int;
     limit : int;
     t : t }
@@ -442,6 +443,7 @@ let seek st p =
   assert (p >= 0 && p <= st.limit);
   let pos' = p / block_size in
   let i' = p mod block_size in
+  st.eos <- false;
   if st.pos = pos' + 1 && st.l > 0 then begin
     st.i <- i'
   end else begin
@@ -464,7 +466,7 @@ let stream ?(first = 0) ?last t =
   let st =
     { i = 0; l = 0;
       a = Array.make block_size 0;
-      pos = 0; limit = last;
+      eos = false; pos = 0; limit = last;
       t = t }
   in
   if len > 0 then seek st first;
@@ -474,9 +476,10 @@ let position st = (st.pos - 1) * block_size + st.i
 
 let refill st =
   let rem = st.limit - st.pos * block_size in
-  if rem <= 0 then
+  if rem <= 0 then begin
+    st.eos <- true;
     max_int
-  else begin
+  end else begin
     decode st.t st.pos 1 st.a 0;
     st.i <- 1;
     st.l <- min block_size rem;
@@ -494,6 +497,9 @@ Format.eprintf "AAA %d:%d -> %d@." st.pos i st.a.(i);
     Array.unsafe_get st.a i
   end else
     refill st
+
+let at_end_of_stream st = st.i = st.l && st.limit - st.pos * block_size <= 0
+let beyond_end_of_stream st = st.eos
 
 (****)
 

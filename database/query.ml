@@ -91,7 +91,10 @@ let _ =
       let vals =
         List.map (fun (stream, kind) -> (Column.read stream, kind)) streams
       in
-      if not (List.exists (fun (v, _) -> v = max_int) vals) then begin
+      if
+        not (List.exists (fun (v, _) -> v = max_int) vals &&
+             List.exists (fun (s, _) -> Column.beyond_end_of_stream s) streams)
+      then begin
         print i vals;
 	read (i + 1)
       end
@@ -100,5 +103,9 @@ let _ =
       None ->
         read 0
     | Some i ->
+        if
+          not (List.for_all (fun (tbl, _) -> i < Column.length tbl) tables)
+        then
+          Util.fail "index beyond end of column.";
         print i (List.map (fun (tbl, kind) -> (Column.get tbl i, kind)) tables)
   end

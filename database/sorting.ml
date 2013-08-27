@@ -107,6 +107,8 @@ type stream =
     mutable l : int;
     a : int array;
     a' : int array;
+    mutable eos : bool;
+    mutable sos : bool;
     mutable pos : int;
     limit : int;
     t : Column.t;
@@ -116,27 +118,31 @@ let make_stream t t' pos len =
   { i = 0; l = 0;
     a = Array.make Column.block_size 0;
     a' = Array.make Column.block_size 0;
-    pos = pos; limit = pos * Column.block_size + len;
+    eos = false; sos = true; pos = pos; limit = pos * Column.block_size + len;
     t = t; t' = t' }
+
+let end_of_stream st = st.eos
+let start_of_stream st = st.sos
+
+let refill st =
+  let rem = st.limit - st.pos * Column.block_size in
+  if rem <= 0 then begin
+    st.eos <- true;
+    max_int
+  end else begin
+    st.sos <- false;
+(*Format.eprintf "decoding at %d@." st.pos;*)
+    Column.decode st.t st.pos 1 st.a 0;
+    Column.decode st.t' st.pos 1 st.a' 0;
+    st.i <- 0;
+    st.l <- min Column.block_size rem;
+    st.pos <- st.pos + 1;
+    st.a.(0)
+  end
 
 let get st =
   let i = st.i in
-  if i < st.l then begin
-    st.a.(i)
-  end else begin
-    let rem = st.limit - st.pos * Column.block_size in
-    if rem <= 0 then
-      max_int
-    else begin
-(*Format.eprintf "decoding at %d@." st.pos;*)
-      Column.decode st.t st.pos 1 st.a 0;
-      Column.decode st.t' st.pos 1 st.a' 0;
-      st.i <- 0;
-      st.l <- min Column.block_size rem;
-      st.pos <- st.pos + 1;
-      st.a.(0)
-    end
-  end
+  if i < st.l then st.a.(i) else refill st
 
 let merge inputs out out' =
   let inputs =
@@ -174,8 +180,14 @@ done;
         heap_id.(i) <- id;
         push i id' v'
       end
-    end else if v <> max_int then begin
-      if v <> min_int then begin
+    end else if
+      v <> max_int ||
+      not (id >= Array.length inputs || end_of_stream inputs.(id))
+    then begin
+      if
+        v <> min_int ||
+        not (id >= Array.length inputs || start_of_stream inputs.(id))
+      then begin
         Column.append out v;
         let st = inputs.(id) in
         let i = st.i in
