@@ -30,6 +30,20 @@ static void merge (intnat * a1, intnat * b1, int i1, int l1,
 
   intnat v1 = a1[i1], v2 = a2[i2];
 
+  if (a1[l1 - 1] <= a2[i2]) {
+    memmove (a + i, a1 + i1, (l1 - i1) * sizeof (intnat));
+    memmove (b + i, b1 + i1, (l1 - i1) * sizeof (intnat));
+    memmove (a + i + l1 - i1, a2 + i2, (l2 - i2) * sizeof (intnat));
+    memmove (b + i + l1 - i1, b2 + i2, (l2 - i2) * sizeof (intnat));
+    return;
+  }
+  if (a2[l2 - 1] < a1[i1]) { /* Strict comparison for sort stability */
+    memmove (a + i, a2 + i2, (l2 - i2) * sizeof (intnat));
+    memmove (b + i, b2 + i2, (l2 - i2) * sizeof (intnat));
+    memmove (a + i + l2 - i2, a1 + i1, (l1 - i1) * sizeof (intnat));
+    memmove (b + i + l2 - i2, b1 + i1, (l1 - i1) * sizeof (intnat));
+    return;
+  }
   while (1) {
     if (v1 <= v2) {
       a[i] = v1; b[i] = b1[i1];
