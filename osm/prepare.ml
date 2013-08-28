@@ -48,7 +48,7 @@ Format.eprintf "%d %d@." (Column.length idx) l;
   let l = [rename 0 "node/id"; rename 1 "way/id"; rename 2 "relation/id"] in
   let index = Column_ops.union (List.map fst l) in
   let idx = Column_ops.union (List.map snd l) in
-  ignore (Sorting.perform ~o2:(base_column "relation_members/member")
+  ignore (Sorting.permute ~o:(base_column "relation_members/member")
             index idx);
 
   Format.eprintf "Computing mapping from ways to nodes.@.";
@@ -60,7 +60,7 @@ Format.eprintf "%d %d@." (Column.length idx) l;
     Join.perform (Column.identity (Column.length node_id)) node_id o' o in
   if Column.length node_idx <> l then
     Util.fail "a way refer to a non-existent node"; 
-  ignore (Sorting.perform ~o2:(base_column "way_refs/node") way_idx node_idx);
+  ignore (Sorting.permute ~o:(base_column "way_refs/node") way_idx node_idx);
 
   Format.eprintf "Building string directory@.";
   let renaming =
@@ -73,10 +73,9 @@ Format.eprintf "%d %d@." (Column.length idx) l;
   let map input renaming output =
     let l = Column.length input in
     let (o, o') = Sorting.perform input (Column.identity l) in
-    let (o, o') =
-      Join.perform renaming (Column.identity (Column.length renaming)) o' o in
+    let o = Projection.project o renaming in
     assert (Column.length o = l);
-    Sorting.perform ~o2:output o' o
+    Sorting.permute ~o:output o' o
   in
   List.iter
     (fun col ->

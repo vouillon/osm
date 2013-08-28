@@ -212,15 +212,9 @@ Format.eprintf "Way assoc@.";
 
   let (nodes, index) =
     Sorting.perform nodes (Column.identity (Column.length nodes)) in
-  let (lat, _) =
-    let lat = Column.open_in (col "node/lat") in
-    Join.perform lat (Column.identity (Column.length lat)) index nodes
-  in
+  let lat = Projection.project nodes (Column.open_in (col "node/lat")) in
   ignore (Sorting.permute ~o:(multi "node/lat") index lat);
-  let (lon, _) =
-    let lon = Column.open_in (col "node/lon") in
-    Join.perform lon (Column.identity (Column.length lon)) index nodes
-  in
+  let lon = Projection.project nodes (Column.open_in (col "node/lon")) in
   ignore (Sorting.permute ~o:(multi "node/lon") index lon)
 
 (****)

@@ -263,27 +263,10 @@ Format.eprintf "Associated latitude and longitude.@.";
   let map_sorted input =
     let l = Column.length input in
     fun renaming output ->
-(*
-    let (o, _) =
-      Join.perform renaming ~o1:output
-        (Column.identity (Column.length renaming)) (Column.identity l) input
-    in
-*)
     let o = Projection.project ~o:output input renaming in
     assert (Column.length o = l);
     o
   in
-(*
-  let map input =
-    let l = Column.length input in
-    let (o, o') = Sorting.perform input (Column.identity l) in
-    fun renaming output ->
-    let (o, o') =
-      Join.perform renaming (Column.identity (Column.length renaming)) o' o in
-    assert (Column.length o = l);
-    snd (Sorting.perform ~o2:output o' o)
-  in
-*)
   let m = map_sorted (Column.open_in (Column.named "linear" "node/idx")) in
   let lat =
     m (Column.open_in (Column.named "base" "node/lat"))
@@ -293,7 +276,6 @@ Format.eprintf "Associated latitude and longitude.@.";
     m (Column.open_in (Column.named "base" "node/lon"))
       (Column.named "linear" "node/lon")
   in
-
   let (node_ids, ways) =
     Join.perform
       (Column.identity (Column.length nodes)) nodes
@@ -301,12 +283,7 @@ Format.eprintf "Associated latitude and longitude.@.";
   in
   assert (Column.length ways = Column.length ways_of_sorted_nodes);
   let m input output =
-    (* XXX Could be optimized if we allowed projection using indices
-       with duplications *)
-    let (data, ways) =
-      Join.perform input (Column.identity (Column.length input))
-        ways node_ids
-    in
+    let data = Projection.project node_ids input in
     assert (Column.length data = Column.length ways);
     Sorting.permute ~o:output ways data
   in
@@ -316,17 +293,6 @@ Format.eprintf "Associated latitude and longitude.@.";
   ignore
     (m (Column.open_in (Column.named "linear" "node/lon"))
        (Column.named "linear" "way_refs/lon"));
-
-(*
-  let m = map (Column.open_in (Column.named "linear" "way_refs/node")) in
-  ignore
-    (m (Column.open_in (Column.named "base" "node/lat"))
-       (Column.named "linear" "way_refs/lat"));
-  ignore
-    (m (Column.open_in (Column.named "base" "node/lon"))
-       (Column.named "linear" "way_refs/lon"));
-*)
-
 Format.eprintf "Order.@.";
   let order =
     compute_order (Column.named "linear" "node/order") lat lon in

@@ -48,7 +48,7 @@ let _ =
   let idx = Column.open_in (Column.named "base" "way_assoc/idx") in
   let key = Column.open_in (Column.named "base" "way_assoc/key") in
 Format.eprintf "Filtering (key = highway)@.";
-  let index = Projection.filter_pred ~o:(Column.named "foo" "index") key (fun v -> v = hw) in
+  let index = Projection.filter ~o:(Column.named "foo" "index") key hw in
 
 Format.eprintf "Projection (way index)@.";
   let hw_idx =
@@ -88,7 +88,7 @@ Format.eprintf "Project (way assoc)@.";
 
 Format.eprintf "Used nodes@.";
   let way_nodes = Column.open_in (Column.named "highway" "way_refs/node") in
-  let (sorted_nodes, _) =
+  let (sorted_nodes, ways_of_sorted_nodes) =
     Sorting.perform
       ~o1:(Column.temp "sorted_nodes")
       way_nodes (Column.identity (Column.length way_nodes))
@@ -97,16 +97,14 @@ Format.eprintf "Used nodes@.";
     Column_ops.unique ~o:(Column.named "highway" "node/idx") sorted_nodes
   in
 Format.eprintf "Associated latitude and longitude.@.";
-  let map input =
+  let map_sorted input =
     let l = Column.length input in
-    let (o, o') = Sorting.perform input (Column.identity l) in
     fun renaming output ->
-    let (o, o') =
-      Join.perform renaming (Column.identity (Column.length renaming)) o' o in
+    let o = Projection.project ~o:output input renaming in
     assert (Column.length o = l);
-    snd (Sorting.perform ~o2:output o' o)
+    o
   in
-  let m = map (Column.open_in (Column.named "highway" "node/idx")) in
+  let m = map_sorted (Column.open_in (Column.named "highway" "node/idx")) in
   let lat =
     m (Column.open_in (Column.named "base" "node/lat"))
       (Column.named "highway" "node/lat")
@@ -115,32 +113,35 @@ Format.eprintf "Associated latitude and longitude.@.";
     m (Column.open_in (Column.named "base" "node/lon"))
       (Column.named "highway" "node/lon")
   in
-  let m = map (Column.open_in (Column.named "highway" "way_refs/node")) in
+  let (node_ids, ways) =
+    Join.perform
+      (Column.identity (Column.length nodes)) nodes
+      ways_of_sorted_nodes sorted_nodes
+  in
+  assert (Column.length ways = Column.length ways_of_sorted_nodes);
+  let m input output =
+    let data = Projection.project node_ids input in
+    assert (Column.length data = Column.length ways);
+    Sorting.permute ~o:output ways data
+  in
   ignore
-    (m (Column.open_in (Column.named "base" "node/lat"))
+    (m (Column.open_in (Column.named "highway" "node/lat"))
        (Column.named "highway" "way_refs/lat"));
   ignore
-    (m (Column.open_in (Column.named "base" "node/lon"))
+    (m (Column.open_in (Column.named "highway" "node/lon"))
        (Column.named "highway" "way_refs/lon"));
 Format.eprintf "Order.@.";
   let order =
     compute_order (Column.named "highway" "node/order") lat lon in
-  let (_, nodes) = Sorting.perform order nodes in
+  let l = Column.length nodes in
+  let (_, reordered_nodes) = Sorting.perform order (Column.identity l) in
+  let node_order = Sorting.permute reordered_nodes (Column.identity l) in
+  ignore (m node_order (Column.named "highway" "way_refs/node_id"));
 
-    let l = Column.length nodes in
-    let (o1, o1') = Sorting.perform nodes (Column.identity l) in
-    let way_nodes = Column.open_in (Column.named "highway" "way_refs/node") in
-    let l = Column.length way_nodes in
-    let (o2, o2') = Sorting.perform way_nodes (Column.identity l) in
-    let (o, o') = Join.perform o1' o1 o2' o2 in
-    ignore
-      (Sorting.perform ~o2:(Column.named "highway" "way_refs/node_id") o' o);
-    ignore (Sorting.perform
-              ~o1:(Column.named "highway" "sorted_node/order")
-              ~o2:(Column.named "highway" "sorted_node/lat")
-              order (Column.open_in (Column.named "highway" "node/lat")));
-    ignore (Sorting.perform ~o2:(Column.named "highway" "sorted_node/lon")
-              order (Column.open_in (Column.named "highway" "node/lon")))
+  ignore (Sorting.permute ~o:(Column.named "highway" "sorted_node/lat")
+            node_order (Column.open_in (Column.named "highway" "node/lat")));
+  ignore (Sorting.permute ~o:(Column.named "highway" "sorted_node/lon")
+            node_order (Column.open_in (Column.named "highway" "node/lon")))
 
 (****)
 
@@ -255,21 +256,21 @@ Format.eprintf "Reordering edges...@.";
     Sorting.perform ~o1:(Column.named "highway" "edge/1bis")
       node_1 (Column.identity (Column.length node_1))
   in
-  let (_, rev_order) =
-    Sorting.perform order (Column.identity (Column.length order)) in
+  let rev_order =
+    Sorting.permute order (Column.identity (Column.length order)) in
   let _ =
-    Sorting.perform ~o2:(Column.named "highway" "edge/2bis") rev_order node_2 in
+    Sorting.permute ~o:(Column.named "highway" "edge/2bis") rev_order node_2 in
   let _ =
-    Sorting.perform ~o2:(Column.named "highway" "edge/length_bis")
+    Sorting.permute ~o:(Column.named "highway" "edge/length_bis")
       rev_order length in
   let _ =
-    Sorting.perform ~o2:(Column.named "highway" "edge/weight_bis")
+    Sorting.permute ~o:(Column.named "highway" "edge/weight_bis")
       rev_order weight in
   let _ =
-    Sorting.perform ~o2:(Column.named "highway" "edge/idx_bis")
+    Sorting.permute ~o:(Column.named "highway" "edge/idx_bis")
       rev_order way_id in
   let _ =
-    Sorting.perform ~o2:(Column.named "highway" "edge/flags_bis")
+    Sorting.permute ~o:(Column.named "highway" "edge/flags_bis")
       rev_order flags in
 ()
   

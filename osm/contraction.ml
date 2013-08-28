@@ -668,10 +668,10 @@ incr trace
   let (source, order) =
     Sorting.perform ~o1:(column "source")
       source (Column.identity (Column.length source)) in
-  let (_, rev_order) =
-    Sorting.perform order (Column.identity (Column.length order)) in
-  ignore (Sorting.perform ~o2:(column "target") rev_order target);
-  ignore (Sorting.perform ~o2:(column "weight") rev_order weight);
-  ignore (Sorting.perform ~o2:(column "flags") rev_order flags);
-  ignore (Sorting.perform ~o2:(column "shortcut") rev_order shortcut);
+  let rev_order =
+    Sorting.permute order (Column.identity (Column.length order)) in
+  ignore (Sorting.permute ~o:(column "target") rev_order target);
+  ignore (Sorting.permute ~o:(column "weight") rev_order weight);
+  ignore (Sorting.permute ~o:(column "flags") rev_order flags);
+  ignore (Sorting.permute ~o:(column "shortcut") rev_order shortcut);
   ignore (Column_ops.build_index ~o:(column "index") source)

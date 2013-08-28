@@ -163,7 +163,7 @@ if !last_hash > 0 then Format.eprintf "%d/%d: %ld@." !last_hash (1 lsl n) (Int32
    - sorted mapping old id -> new id
    - change string ids everywhere
 *)
-  snd (Sorting.perform ~o2:renaming old_ids new_ids)
+  Sorting.permute ~o:renaming old_ids new_ids
 
 type char_array =
   (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t

@@ -302,10 +302,7 @@ let _ =
     let l = Column.length input in
     let (o, o') = Sorting.perform input (Column.identity l) in
     fun renaming output ->
-      (* XXX Could be optimized if we allowed projection using indices
-         with duplications *)
-      let (o, o') =
-        Join.perform renaming (Column.identity (Column.length renaming)) o' o in
+      let o = Projection.project o renaming in
       assert (Column.length o = l);
       Sorting.permute ~o:output o' o
   in
@@ -390,25 +387,24 @@ let _ =
   Format.eprintf "Order.@.";
   let order =
     compute_order (Column.named "surfaces" "poly/order") poly_lat poly_lon in
+  let l = Column.length order in
+  let (_, reordered_polys) = Sorting.perform order (Column.identity l) in
+  let order = Sorting.permute reordered_polys (Column.identity l) in
 
   Format.eprintf "Reorder.@.";
   let sort order col =
     ignore
-      (Sorting.perform ~o2:(Column.named "surfaces/sorted" col)
+      (Sorting.permute ~o:(Column.named "surfaces/sorted" col)
          order (Column.open_in (Column.named "surfaces" col)))
   in
   let propagate_order order reference =
     let ref_col = Column.open_in (Column.named "surfaces" reference) in
-    let src_id = Column.identity (Column.length order) in
     let dst_id = Column.identity (Column.length ref_col) in
-    let new_numbering =
-      snd (Sorting.perform (snd (Sorting.perform order src_id)) src_id) in
-    let (_, new_numbering) =
-      Join.perform dst_id ref_col new_numbering src_id in
-    snd (Sorting.perform
-     (snd (Sorting.perform ~o1:(Column.named "surfaces/sorted" reference)
-           new_numbering dst_id))
-      dst_id)
+    let order = Projection.project ref_col order in
+    Sorting.permute
+      (snd (Sorting.perform ~o1:(Column.named "surfaces/sorted" reference)
+              order dst_id))
+      dst_id
   in
   sort order "poly/category";
   sort order "poly/layer";
