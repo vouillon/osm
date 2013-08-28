@@ -68,21 +68,27 @@ let filter_pred_2 = Column.with_spec filter_pred_2 "filtered"
 let project output index input =
   let index = Column.stream index in
   let input = Column.stream input in
-  let rec project_rec i =
+  let rec project_rec i v =
     let i' = Column.read index in
     if i' <> max_int || not (Column.beyond_end_of_stream index) then begin
       assert (i <= i');
-      if i' - i > 5 then
-        Column.seek input i'
-      else begin
-        let i = ref i in
-        while !i < i' do ignore (Column.read input); incr i done
-      end;
-      Column.append output (Column.read input);
-      project_rec (i' + 1)
+      let v =
+        if i' = i then
+          v
+        else begin
+          if i' - i > 5 then
+            Column.seek input i'
+          else begin
+            for j = i + 1 to i' - 1 do ignore (Column.read input) done
+          end;
+          Column.read input
+        end
+      in
+      Column.append output v;
+      project_rec i' v
     end
   in
-  project_rec 0;
+  project_rec (-1) min_int;
   Column.freeze output
 
 let project = Column.with_spec project "proj"

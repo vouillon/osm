@@ -26,7 +26,7 @@ val filter_pred_2 :
 val project : ?o:Column.spec -> Column.t -> Column.t -> Column.t
 (*
    [project index input]
-   The index must be sorted.
+   The index must be sorted. There can be duplicated entries in the index.
 *)
 
 (*
