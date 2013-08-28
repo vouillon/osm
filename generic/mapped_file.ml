@@ -115,6 +115,11 @@ let open_in nm kind =
   Unix.close ch;
   a
 
+let open_in_fd ch kind =
+  let a = Bigarray.Array1.map_file ch kind Bigarray.c_layout true (-1) in
+  Unix.close ch;
+  a
+
 let array a = a
 
 let freeze s =

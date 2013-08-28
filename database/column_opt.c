@@ -141,3 +141,14 @@ CAMLprim value encode_chunk_ml
 
   return Val_long(b - a);
 }
+
+CAMLprim value encode_chunk_to_string_ml
+(value va, value vpos, value vbuf, value vj0, value vchunk_size) {
+  uint8_t * a = (uint8_t *) String_val(va);
+  long j0 = Long_val (vj0);
+  long chunk_size = Long_val (vchunk_size);
+
+  uint8_t * b = encode_chunk (a + Long_val (vpos), vbuf, j0, chunk_size);
+
+  return Val_long(b - a);
+}

@@ -334,93 +334,221 @@ let decode_to_bigarray t i n a j =
 
 (****)
 
-type output_stream =
-  { stream : (int, Bigarray.int8_unsigned_elt) Mapped_file.output_stream;
-    mutable pos : int;
-    buffer : int array;
-    mutable i : int;
-    mutable table : int array;
-    mutable n : int }
+module Output_stream_write = struct
 
-let open_out ?temp nm =
-  Util.make_directories nm;
-  let stream =
-    Mapped_file.open_out nm ?temp map_incr Mapped_file.int8_unsigned in
-  { stream = stream; buffer = Array.make block_size 0; table = [||];
-    pos = 24; i = 0; n = 0 }
+  type output_stream =
+    { fd : Unix.file_descr;
+      mutable pos : int;
+      write_buffer : string;
+      mutable buf_pos : int;
+      buffer : int array;
+      mutable i : int;
+      mutable table : int array;
+      mutable n : int }
 
-let record_block_start s =
-  let len = Array.length s.table in
-  s.n <- s.n + 1;
-  if s.n > len then begin
-    let l = max (2 * len) 1024 in
-    let a = Array.make l 0 in
-    Array.blit s.table 0 a 0 len;
-    s.table <- a
-  end;
-  s.table.(s.n - 1) <- s.pos
+  let write_size = 64 * 1024
 
-external encode_chunk : char_array -> int -> int array -> int -> int -> int
-  = "encode_chunk_ml"
+  let open_out ?temp nm =
+    Util.make_directories nm;
+    let fd =
+      Unix.openfile nm [Unix.O_RDWR; Unix.O_CREAT; Unix.O_TRUNC] 0o666 in
+    if temp <> None then Unix.unlink nm;
+    ignore (Unix.lseek fd 24 Unix.SEEK_SET);
+    { fd = fd; write_buffer = String.create (write_size + max_overhead);
+      buffer = Array.make block_size 0; table = [||];
+      pos = 24; buf_pos = 0; i = 0; n = 0 }
 
-let flush_buffer s =
-  record_block_start s;
-  let pos = s.pos in
-  Mapped_file.resize s.stream (pos + max_overhead);
-  let a = Mapped_file.output_array s.stream in
-  let head = pos in
-  let start = s.pos + 2 * chunk_count in
-  let pos = ref start in
-  for i = 0 to chunk_count - 1 do
-    write_int_2 a (head + 2 * i) (!pos - start);
-    let j0 = i * chunk_size in
-    pos := encode_chunk a !pos s.buffer j0 chunk_size;
-(*
-    let last = ref 0 in
-    for j = j0 to j0 + chunk_size - 1 do
-      let v = s.buffer.(j) in
-      pos := write_signed_varint a !pos (v - !last);
-      last := v
+  let record_block_start s =
+    let len = Array.length s.table in
+    s.n <- s.n + 1;
+    if s.n > len then begin
+      let l = max (2 * len) 1024 in
+      let a = Array.make l 0 in
+      Array.blit s.table 0 a 0 len;
+      s.table <- a
+    end;
+    s.table.(s.n - 1) <- s.pos
+
+  external encode_chunk : string -> int -> int array -> int -> int -> int
+    = "encode_chunk_to_string_ml"
+
+  let write_int_2 a p v =
+    a.[p] <- Char.chr (v land 0xff); a.[p + 1] <- Char.chr ((v lsr 8) land 0xff)
+
+  let write_int_8 a p v =
+    let v = ref v in
+    for i = 0 to 7 do
+      a.[p + i] <- Char.chr (!v land 0xff);
+      v := !v lsr 8
     done
-*)
-  done;
-(*check a s.pos s.buffer;*)
-  s.pos <- !pos;
-  s.i <- 0
 
-let append s v =
-  let i = s.i in
-  Array.unsafe_set s.buffer i v;
-  let i = i + 1 in
-  s.i <- i;
-  if i = block_size then flush_buffer s
+  let rec really_write fd s pos len =
+    if len > 0 then
+      let n = Unix.write fd s pos len in
+      really_write fd s (pos + n) (len - n)
 
-let finish_output s =
-  let i = s.i in
-  if i > 0 then flush_buffer s;
-  Mapped_file.resize s.stream (s.pos + 8 * s.n);
-  let a = Mapped_file.output_array s.stream in
-  write_int_8 a 16 s.pos;
-  for j = 0 to s.n - 1 do
-    write_int_8 a (s.pos + 8 * j) s.table.(j)
-(*
-;Format.eprintf "block %d: %d@." i s.table.(i);
-*)
-  done;
-  let len = (s.n - 1) * block_size + (if i = 0 then block_size else i) in
-  write_int_8 a 8 len;
-  for i = 0 to 7 do
-    a.{i} <- Char.code magic.[i]
-  done
+  let write_buffer s =
+    let len = min write_size s.buf_pos in
+    really_write s.fd s.write_buffer 0 len;
+    if len < s.buf_pos then
+      String.blit s.write_buffer len s.write_buffer 0 (s.buf_pos - len);
+    s.buf_pos <- s.buf_pos - len
 
-let close_out s =
-  finish_output s;
-  Mapped_file.close_out s.stream
+  let flush_buffer s =
+    record_block_start s;
+    let a = s.write_buffer in
+    let head = s.buf_pos in
+    let start = head + 2 * chunk_count in
+    let pos = ref start in
+    for i = 0 to chunk_count - 1 do
+      write_int_2 a (head + 2 * i) (!pos - start);
+      let j0 = i * chunk_size in
+      pos := encode_chunk a !pos s.buffer j0 chunk_size;
+  (*
+      let last = ref 0 in
+      for j = j0 to j0 + chunk_size - 1 do
+        let v = s.buffer.(j) in
+        pos := write_signed_varint a !pos (v - !last);
+        last := v
+      done
+  *)
+    done;
+    s.pos <- s.pos + !pos - s.buf_pos;
+    s.buf_pos <- !pos;
+    if !pos >= write_size then write_buffer s;
+    s.i <- 0
 
-let freeze s =
-  finish_output s;
-  Materialized
-    (Materialized.open_from_mapped_file (Mapped_file.freeze s.stream))
+  let append s v =
+    let i = s.i in
+    Array.unsafe_set s.buffer i v;
+    let i = i + 1 in
+    s.i <- i;
+    if i = block_size then flush_buffer s
+
+  let finish_output s =
+    let i = s.i in
+    if i > 0 then flush_buffer s;
+    write_buffer s;
+    assert (s.buf_pos = 0);
+    let a = String.create (8 * s.n) in
+    for j = 0 to s.n - 1 do
+      write_int_8 a (8 * j) s.table.(j)
+    done;
+    assert (Unix.lseek s.fd 0 Unix.SEEK_CUR = s.pos);
+    really_write s.fd a 0 (String.length a);
+    let len = (s.n - 1) * block_size + (if i = 0 then block_size else i) in
+
+    let a = magic ^ String.create 16 in
+    write_int_8 a 8 len;
+    write_int_8 a 16 s.pos;
+    ignore (Unix.lseek s.fd 0 Unix.SEEK_SET);
+    really_write s.fd a 0 (String.length a)
+
+  let close_out s =
+    finish_output s;
+    Unix.close s.fd
+
+  let freeze s =
+    finish_output s;
+    Materialized
+      (Materialized.open_from_mapped_file
+         (Mapped_file.open_in_fd s.fd Bigarray.int8_unsigned))
+
+end
+
+module Output_stream_mmap = struct
+
+  type output_stream =
+    { stream : (int, Bigarray.int8_unsigned_elt) Mapped_file.output_stream;
+      mutable pos : int;
+      buffer : int array;
+      mutable i : int;
+      mutable table : int array;
+      mutable n : int }
+
+  let open_out ?temp nm =
+    Util.make_directories nm;
+    let stream =
+      Mapped_file.open_out nm ?temp map_incr Mapped_file.int8_unsigned in
+    { stream = stream; buffer = Array.make block_size 0; table = [||];
+      pos = 24; i = 0; n = 0 }
+
+  let record_block_start s =
+    let len = Array.length s.table in
+    s.n <- s.n + 1;
+    if s.n > len then begin
+      let l = max (2 * len) 1024 in
+      let a = Array.make l 0 in
+      Array.blit s.table 0 a 0 len;
+      s.table <- a
+    end;
+    s.table.(s.n - 1) <- s.pos
+
+  external encode_chunk : char_array -> int -> int array -> int -> int -> int
+    = "encode_chunk_ml"
+
+  let flush_buffer s =
+    record_block_start s;
+    let pos = s.pos in
+    Mapped_file.resize s.stream (pos + max_overhead);
+    let a = Mapped_file.output_array s.stream in
+    let head = pos in
+    let start = s.pos + 2 * chunk_count in
+    let pos = ref start in
+    for i = 0 to chunk_count - 1 do
+      write_int_2 a (head + 2 * i) (!pos - start);
+      let j0 = i * chunk_size in
+      pos := encode_chunk a !pos s.buffer j0 chunk_size;
+  (*
+      let last = ref 0 in
+      for j = j0 to j0 + chunk_size - 1 do
+        let v = s.buffer.(j) in
+        pos := write_signed_varint a !pos (v - !last);
+        last := v
+      done
+  *)
+    done;
+  (*check a s.pos s.buffer;*)
+    s.pos <- !pos;
+    s.i <- 0
+
+  let append s v =
+    let i = s.i in
+    Array.unsafe_set s.buffer i v;
+    let i = i + 1 in
+    s.i <- i;
+    if i = block_size then flush_buffer s
+
+  let finish_output s =
+    let i = s.i in
+    if i > 0 then flush_buffer s;
+    Mapped_file.resize s.stream (s.pos + 8 * s.n);
+    let a = Mapped_file.output_array s.stream in
+    write_int_8 a 16 s.pos;
+    for j = 0 to s.n - 1 do
+      write_int_8 a (s.pos + 8 * j) s.table.(j)
+  (*
+  ;Format.eprintf "block %d: %d@." i s.table.(i);
+  *)
+    done;
+    let len = (s.n - 1) * block_size + (if i = 0 then block_size else i) in
+    write_int_8 a 8 len;
+    for i = 0 to 7 do
+      a.{i} <- Char.code magic.[i]
+    done
+
+  let close_out s =
+    finish_output s;
+    Mapped_file.close_out s.stream
+
+  let freeze s =
+    finish_output s;
+    Materialized
+      (Materialized.open_from_mapped_file (Mapped_file.freeze s.stream))
+
+end
+
+include Output_stream_write
 
 (****)
 

@@ -19,6 +19,7 @@
 type ('a, 'b) t
 
 val open_in : string -> ('a, 'b) Bigarray.kind -> ('a, 'b) t
+val open_in_fd : Unix.file_descr -> ('a, 'b) Bigarray.kind -> ('a, 'b) t
 
 val array : ('a, 'b) t -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
 
