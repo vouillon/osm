@@ -65,7 +65,7 @@ let _ =
   if !cols = [] then
     iter_files ""
   else if dirs <> [] then
-    List.iter (fun (d, _) -> iter_files d) dirs
+    List.iter (fun (d, _) -> iter_files d) (List.rev dirs)
   else begin
     let d = lazy (Dictionary.load "strings") in
     let tables =
