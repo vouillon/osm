@@ -16,6 +16,13 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+(*
+TODO
+====
+* More compact representation
+*)
+
+
 (* Linear features *)
 
 let leaf_size = 2048
@@ -158,6 +165,7 @@ let _ =
   let idx = Column.open_in (Column.named "base" "way_assoc/idx") in
   let key = Column.open_in (Column.named "base" "way_assoc/key") in
   let value = Column.open_in (Column.named "base" "way_assoc/val") in
+
 Format.eprintf "Filtering@.";
   let index =
     Column_ops.unique
@@ -241,7 +249,7 @@ Format.eprintf "Categories@.";
 
 Format.eprintf "Used nodes@.";
   let way_nodes = Column.open_in (Column.named "linear" "way_refs/node") in
-  let (sorted_nodes, _) =
+  let (sorted_nodes, ways_of_sorted_nodes) =
     Sorting.perform
       ~o1:(Column.temp "sorted_nodes")
       way_nodes (Column.identity (Column.length way_nodes))
@@ -261,6 +269,7 @@ Format.eprintf "Associated latitude and longitude.@.";
     assert (Column.length o = l);
     o
   in
+(*
   let map input =
     let l = Column.length input in
     let (o, o') = Sorting.perform input (Column.identity l) in
@@ -270,6 +279,7 @@ Format.eprintf "Associated latitude and longitude.@.";
     assert (Column.length o = l);
     snd (Sorting.perform ~o2:output o' o)
   in
+*)
   let m = map_sorted (Column.open_in (Column.named "linear" "node/idx")) in
   let lat =
     m (Column.open_in (Column.named "base" "node/lat"))
@@ -279,6 +289,29 @@ Format.eprintf "Associated latitude and longitude.@.";
     m (Column.open_in (Column.named "base" "node/lon"))
       (Column.named "linear" "node/lon")
   in
+
+  let (node_ids, ways) =
+    Join.perform
+      (Column.identity (Column.length nodes)) nodes
+      ways_of_sorted_nodes sorted_nodes
+  in
+  assert (Column.length ways = Column.length ways_of_sorted_nodes);
+  let m input output =
+    let (data, ways) =
+      Join.perform input (Column.identity (Column.length input))
+        ways node_ids
+    in
+    assert (Column.length data = Column.length ways);
+    Sorting.permute ~o:output ways data
+  in
+  ignore
+    (m (Column.open_in (Column.named "linear" "node/lat"))
+       (Column.named "linear" "way_refs/lat"));
+  ignore
+    (m (Column.open_in (Column.named "linear" "node/lon"))
+       (Column.named "linear" "way_refs/lon"));
+
+(*
   let m = map (Column.open_in (Column.named "linear" "way_refs/node")) in
   ignore
     (m (Column.open_in (Column.named "base" "node/lat"))
@@ -286,26 +319,33 @@ Format.eprintf "Associated latitude and longitude.@.";
   ignore
     (m (Column.open_in (Column.named "base" "node/lon"))
        (Column.named "linear" "way_refs/lon"));
+*)
 
 Format.eprintf "Order.@.";
   let order =
     compute_order (Column.named "linear" "node/order") lat lon in
-  let (_, nodes) = Sorting.perform order nodes in
-
   let l = Column.length nodes in
-  let (o1, o1') = Sorting.perform nodes (Column.identity l) in
+  let (_, reordered_nodes) = Sorting.perform order (Column.identity l) in
+
+  let node_order = Sorting.permute reordered_nodes (Column.identity l) in
+  ignore (m node_order (Column.named "linear" "way_refs/node_id"));
+(*
+  let (o1, o1') = Sorting.perform reordered_nodes (Column.identity l) in
   let way_nodes = Column.open_in (Column.named "linear" "way_refs/node") in
   let l = Column.length way_nodes in
   let (o2, o2') = Sorting.perform way_nodes (Column.identity l) in
   let (o, o') = Join.perform o1' o1 o2' o2 in
   ignore
     (Sorting.perform ~o2:(Column.named "linear" "way_refs/node_id") o' o);
+*)
+(*
   ignore (Sorting.perform
             ~o1:(Column.named "linear" "sorted/node/order")
             ~o2:(Column.named "linear" "sorted/node/lat")
             order (Column.open_in (Column.named "linear" "node/lat")));
   ignore (Sorting.perform ~o2:(Column.named "linear" "sorted/node/lon")
             order (Column.open_in (Column.named "linear" "node/lon")));
+*)
 
 Format.eprintf "Writing edges...@.";
   let stream path name =
@@ -383,28 +423,28 @@ Format.eprintf "Reordering edges...@.";
     Sorting.perform ~o1:(Column.named "linear" "sorted/edge/1")
       node1 (Column.identity (Column.length node1))
   in
-  let (_, rev_order) =
-    Sorting.perform order (Column.identity (Column.length order)) in
-  let (_, latitude1) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/lat1")
+  let rev_order =
+    Sorting.permute order (Column.identity (Column.length order)) in
+  let latitude1 =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/lat1")
       rev_order latitude1 in
-  let (_, longitude1) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/lon1")
+  let longitude1 =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/lon1")
       rev_order longitude1 in
-  let (_, node2) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/2")
+  let node2 =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/2")
       rev_order node2 in
-  let (_, latitude2) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/lat2")
+  let latitude2 =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/lat2")
       rev_order latitude2 in
-  let (_, longitude2) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/lon2")
+  let longitude2 =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/lon2")
       rev_order longitude2 in
-  let (_, category) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/category")
+  let category =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/category")
       rev_order category in
-  let (_, layer) =
-    Sorting.perform ~o2:(Column.named "linear" "sorted/edge/layer")
+  let layer =
+    Sorting.permute ~o:(Column.named "linear" "sorted/edge/layer")
       rev_order layer in
 
 Format.eprintf "Build R-tree@.";
@@ -478,7 +518,9 @@ Format.eprintf "Build R-tree@.";
     let output_leaf st =
       output_int_2 leaves st.node_prev_pos;
       output_int_2 leaves st.edge_prev_pos;
+(*
   Format.eprintf "%d %d %d %d@." st.node_prev_pos st.edge_prev_pos st.node_last st.edge_count;
+*)
       output leaves node_buf 0 st.node_prev_pos;
       output leaves edge_buf 0 (leaf_size - st.node_prev_pos - 4);
   (*
@@ -557,7 +599,9 @@ Format.eprintf "Build R-tree@.";
         close_out leaves;
         Rtree.close_out tree
       end;
+(*
 Format.eprintf "miss: %d/%d@." !miss !num
+*)
     in
     rtrees := close :: !rtrees;
     fun n1 lat1 lon1 n2 lat2 lon2 cat lay ->
@@ -579,7 +623,18 @@ Format.eprintf "miss: %d/%d@." !miss !num
       write_large_edge_3 n1 lat1 lon1 n2 lat2 lon2 cat 0;
   in
 
-  let rec loop () =
+  let len =
+    Column.length (Column.open_in (Column.named "linear" "sorted/edge/1")) in
+  let t = Unix.gettimeofday () in
+  let rec loop i =
+    if i land 4095 = 4095 then begin
+      let p = float i /. float len in
+      let t' = Unix.gettimeofday () in
+      Util.set_msg
+        (Format.sprintf "writing edges: %s %.0f%% eta %.0fs"
+           (Util.progress_bar p) (p *. 100.)
+           ((1. -. p) *. (t' -. t) /. p))
+    end;
     let n1 = Column.read node1 in
     let lat1 = Column.read latitude1 in
     let lon1 = Column.read longitude1 in
@@ -590,10 +645,11 @@ Format.eprintf "miss: %d/%d@." !miss !num
     let lay = Column.read layer in
     if n1 <> max_int then begin
       write_edge n1 lat1 lon1 n2 lat2 lon2 cat lay;
-      loop ()
+      loop (i + 1)
     end
   in
-  loop ();
+  loop 0;
+  Util.set_msg "";
   List.iter (fun close -> close ()) !rtrees
 
 (*
