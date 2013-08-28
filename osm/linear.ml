@@ -240,6 +240,7 @@ Format.eprintf "Categories@.";
   ignore
     (let way = Projection.project idx assoc_idx in
      let (way, layer_info) = Column_ops.group (lor) way layer_info in
+     (* XXX Could be optimized (this is a kind of projection *)
      Join.perform
        ~o2:(Column.named "linear" "way/layer")
        (Column.identity (Column.length category))
@@ -262,10 +263,13 @@ Format.eprintf "Associated latitude and longitude.@.";
   let map_sorted input =
     let l = Column.length input in
     fun renaming output ->
+(*
     let (o, _) =
       Join.perform renaming ~o1:output
         (Column.identity (Column.length renaming)) (Column.identity l) input
     in
+*)
+    let o = Projection.project ~o:output input renaming in
     assert (Column.length o = l);
     o
   in
@@ -297,6 +301,8 @@ Format.eprintf "Associated latitude and longitude.@.";
   in
   assert (Column.length ways = Column.length ways_of_sorted_nodes);
   let m input output =
+    (* XXX Could be optimized if we allowed projection using indices
+       with duplications *)
     let (data, ways) =
       Join.perform input (Column.identity (Column.length input))
         ways node_ids

@@ -183,21 +183,21 @@ Format.eprintf "Way assoc@.";
         index ways'
         (Column.identity (Column.length tbl)) tbl
     in
-    ignore (Sorting.perform ~o2:(multi "way_assoc/idx") indices indices);
+    ignore (Sorting.permute ~o:(multi "way_assoc/idx") indices indices);
     let (indices, tbl) =
       let tbl = Column.open_in (col "way_assoc/key") in
       Join.perform
         index ways'
         tbl (Column.open_in (col "way_assoc/idx"))
     in
-    ignore (Sorting.perform ~o2:(multi "way_assoc/key") indices tbl);
+    ignore (Sorting.permute ~o:(multi "way_assoc/key") indices tbl);
     let (indices, tbl) =
       let tbl = Column.open_in (col "way_assoc/val") in
       Join.perform
         index ways'
         tbl (Column.open_in (col "way_assoc/idx"))
     in
-    ignore (Sorting.perform ~o2:(multi "way_assoc/val") indices tbl)
+    ignore (Sorting.permute ~o:(multi "way_assoc/val") indices tbl)
   end;
   
   let (index, nodes) =
@@ -207,12 +207,8 @@ Format.eprintf "Way assoc@.";
       (Column.open_in (col "way_refs/way"))
   in
   let (index, nodes) =
-    Sorting.perform ~o2:(multi "node/node") index nodes in
-  ignore
-    (Join.perform ~o1:(multi "node/way")
-       (Column.identity (Column.length ways))
-       (Column.identity (Column.length ways))
-       (Column.identity (Column.length index)) index);
+    Sorting.perform ~o1:(multi "node/way") ~o2:(multi "node/node")
+      index nodes in
 
   let (nodes, index) =
     Sorting.perform nodes (Column.identity (Column.length nodes)) in
@@ -220,12 +216,12 @@ Format.eprintf "Way assoc@.";
     let lat = Column.open_in (col "node/lat") in
     Join.perform lat (Column.identity (Column.length lat)) index nodes
   in
-  ignore (Sorting.perform ~o2:(multi "node/lat") index lat);
+  ignore (Sorting.permute ~o:(multi "node/lat") index lat);
   let (lon, _) =
     let lon = Column.open_in (col "node/lon") in
     Join.perform lon (Column.identity (Column.length lon)) index nodes
   in
-  ignore (Sorting.perform ~o2:(multi "node/lon") index lon)
+  ignore (Sorting.permute ~o:(multi "node/lon") index lon)
 
 (****)
 

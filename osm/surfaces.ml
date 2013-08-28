@@ -302,10 +302,12 @@ let _ =
     let l = Column.length input in
     let (o, o') = Sorting.perform input (Column.identity l) in
     fun renaming output ->
+      (* XXX Could be optimized if we allowed projection using indices
+         with duplications *)
       let (o, o') =
         Join.perform renaming (Column.identity (Column.length renaming)) o' o in
       assert (Column.length o = l);
-      snd (Sorting.perform ~o2:output o' o)
+      Sorting.permute ~o:output o' o
   in
   let m i o =
     ignore (map (Column.open_in
