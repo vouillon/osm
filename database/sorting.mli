@@ -21,6 +21,11 @@ val perform :
   Column.t -> Column.t -> Column.t * Column.t
 (* Sort on the first column. The sort is stable. *)
 
+val permute :
+  ?o:Column.spec ->
+  Column.t -> Column.t -> Column.t
+(* Sort on the first column when it is a permutation. The sort is stable. *)
+
 (*
 val check_sorted : Column.t -> unit
 

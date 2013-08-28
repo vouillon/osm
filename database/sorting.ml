@@ -222,7 +222,7 @@ let perform output output' input input' =
   if Column.length input' <> l then
     failwith "sorting column of different sizes";
   let blocks = (l + Column.block_size - 1) / Column.block_size in
-Format.eprintf "%d blocks@." blocks;
+Format.eprintf "Sorting %d blocks@." blocks;
   let n = (blocks + max_size - 1) / max_size in
   let s = (blocks + n - 1) / n in
 
@@ -308,3 +308,69 @@ let _ =
       (Column.get o1 i = i &&  Column.get o2 i + i = len - 1)
   done
 *)
+
+let permute output order input =
+  let max_size =
+    mem / 8 (* int size *) 
+        / Column.block_size (* convert to blocks *)
+  in
+  let l = Column.length input in
+  if Column.length order <> l then
+    failwith "sorting column of different sizes";
+  let blocks = (l + Column.block_size - 1) / Column.block_size in
+Format.eprintf "Permuting %d blocks@." blocks;
+  let n = (blocks + max_size - 1) / max_size in
+  let s0 = min max_size blocks in
+  let s = if n = 1 then 0 else (blocks - s0 + n - 1) / (n - 1) in
+
+Format.eprintf "Need %d steps; %d then %d blocks per step (max %d)@."
+n s0 s max_size;
+
+  let permute_chunk base s s' order input outputs =
+let t = Unix.gettimeofday () in
+    let order = Column.stream order in
+    let input = Column.stream input in
+    let len = min (l - base) (s * Column.block_size) in
+    let len' = s' * Column.block_size in
+    let a = Array1.create Bigarray.int Bigarray.c_layout len in
+    let rec loop () =
+      let i = Column.read order in
+      let v = Column.read input in
+      if i <> max_int || not (Column.beyond_end_of_stream order) then begin
+        if i < base + len then
+          a.{i - base} <- v
+        else begin
+          assert (base = 0);
+(*
+Format.eprintf "%d %d %d@." i len len';
+*)
+          let (order', input') = outputs.((i - len) / len') in
+          Column.append order' i;
+          Column.append input' v
+        end;
+        loop ()
+      end
+    in
+    loop ();
+Format.eprintf "reading: %.2fs@." (Unix.gettimeofday () -. t);
+let t = Unix.gettimeofday () in
+    for i = 0 to len - 1 do
+      Column.append output a.{i}
+    done;
+Format.eprintf "writing: %.2fs@." (Unix.gettimeofday () -. t);
+  in
+  let outputs =
+    Array.init (n - 1)
+      (fun _ ->
+         (Column.open_out (Column.temp "permute_index"),
+          Column.open_out (Column.temp "permute_value")))
+  in
+  permute_chunk 0 s0 s order input outputs;
+  for i = 0 to n - 2 do
+    let (order, input) = outputs.(i) in
+    permute_chunk ((s0 + i * s) * Column.block_size) s 0
+      (Column.freeze order) (Column.freeze input) [||];
+  done;
+  Column.freeze output
+
+let permute = Column.with_spec permute "permuted"
