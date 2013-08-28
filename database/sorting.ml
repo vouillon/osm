@@ -25,6 +25,14 @@ type int_array = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 module Array1 = Bigarray.Array1
 
+let create_bigarray len =
+  try
+    Array1.create Bigarray.int Bigarray.c_layout len
+  with Out_of_memory ->
+    Format.eprintf "Freeing memory to allocate big array@.";
+    Gc.compact ();
+    Array1.create Bigarray.int Bigarray.c_layout len
+
 let blit (src : int_array) i (dst : int_array) j n =
   for k = 0 to n - 1 do
     Array1.unsafe_set dst (j + k) (Array1.unsafe_get src (i + k))
@@ -86,8 +94,8 @@ let stable_sort a a' l =
   if l <= cutoff then isortto 0 a a' 0 l else begin
     let l1 = l / 2 in
     let l2 = l - l1 in
-    let t = Array1.create Bigarray.int Bigarray.c_layout l2 in
-    let t' = Array1.create Bigarray.int Bigarray.c_layout l2 in
+    let t = create_bigarray l2 in
+    let t' = create_bigarray l2 in
     sortto l1 t t' 0 l2;
     sortto 0 a a' l2 l1;
     merge l2 l1 t t' 0 l2 a a' 0;
@@ -230,10 +238,8 @@ Format.eprintf "Need %d steps; %d blocks per step (max %d)@." n s max_size;
 
   let lst = ref [] in
   let sort_chunks output output' =
-    let a =
-      Array1.create Bigarray.int Bigarray.c_layout (s * Column.block_size) in
-    let a' =
-      Array1.create Bigarray.int Bigarray.c_layout (s * Column.block_size) in
+    let a = create_bigarray (s * Column.block_size) in
+    let a' = create_bigarray (s * Column.block_size) in
     for i = 0 to n - 1 do
   let t = Unix.gettimeofday () in
       Column.decode_to_bigarray input (i * s) (min s (blocks - i * s)) a 0;
@@ -326,13 +332,13 @@ Format.eprintf "Permuting %d blocks@." blocks;
 Format.eprintf "Need %d steps; %d then %d blocks per step (max %d)@."
 n s0 s max_size;
 
+  let a = create_bigarray (s0 * Column.block_size) in
   let permute_chunk base s s' order input outputs =
 let t = Unix.gettimeofday () in
     let order = Column.stream order in
     let input = Column.stream input in
     let len = min (l - base) (s * Column.block_size) in
     let len' = s' * Column.block_size in
-    let a = Array1.create Bigarray.int Bigarray.c_layout len in
     let rec loop () =
       let i = Column.read order in
       let v = Column.read input in
