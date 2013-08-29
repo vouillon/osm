@@ -1800,7 +1800,9 @@ let display =
   GMisc.drawing_area
     ~packing:(table#attach ~left:0 ~top:0 ~fill:`BOTH ~expand:`BOTH) () in
 display#misc#set_can_focus true;
+(*
 display#misc#set_double_buffered false;
+*)
 
 let queue_draw () = GtkBase.Widget.queue_draw display#as_widget in
 let refresh () =
