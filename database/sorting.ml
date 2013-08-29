@@ -25,6 +25,8 @@ type int_array = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 module Array1 = Bigarray.Array1
 
+let min x y : int = if x < y then x else y
+
 let create_bigarray len =
   try
     Array1.create Bigarray.int Bigarray.c_layout len

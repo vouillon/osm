@@ -49,6 +49,20 @@ module type S = sig
   val list : t list
 end
 
+module IntTbl =
+  Hashtbl.Make
+    (struct
+       type t = int
+       let hash key = (* Thomas Wang downscaling hash function *)
+         let key = (lnot key) + (key lsl 18) in
+         let key = key lxor (key lsr 31) in
+         let key = key * 21 in
+         let key = key lxor (key lsr 11) in
+         let key = key + (key lsl 6) in
+         key lxor (key lsr 22)
+       let equal (x : int) y = x = y
+     end)
+
 module Make (X : S) = struct
   let list = Array.of_list (List.sort compare X.list)
   let table =
@@ -71,16 +85,16 @@ module Make (X : S) = struct
 
   let classify dict c =
     let s v = try Dictionary.find dict v with Not_found -> -1 in
-    let h = Hashtbl.create 32 in
+    let h = IntTbl.create 32 in
     List.iter
       (fun (key, l) ->
          let key = s key in
          let h' =
            try
-             fst (Hashtbl.find h key)
+             fst (IntTbl.find h key)
            with Not_found ->
-             let h' = Hashtbl.create 16 in
-             Hashtbl.add h key (h', none);
+             let h' = IntTbl.create 16 in
+             IntTbl.add h key (h', none);
              h'
          in
          List.iter
@@ -89,17 +103,17 @@ module Make (X : S) = struct
               match filter with
                 `Any l ->
                   List.iter
-                    (fun value -> Hashtbl.replace h' (s value) cat) l
+                    (fun value -> IntTbl.replace h' (s value) cat) l
               | `Not l ->
                   List.iter
-                    (fun value -> Hashtbl.replace h' (s value) none) l;
-                  Hashtbl.replace h key (h', cat))
+                    (fun value -> IntTbl.replace h' (s value) none) l;
+                  IntTbl.replace h key (h', cat))
            l)
       c;
     fun key value ->
       try
-        let (h', def) = Hashtbl.find h key in
-        try Hashtbl.find h' value with Not_found -> def
+        let (h', def) = IntTbl.find h key in
+        try IntTbl.find h' value with Not_found -> def
       with Not_found ->
         none
 

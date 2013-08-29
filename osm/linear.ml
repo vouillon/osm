@@ -72,19 +72,24 @@ let output_int_2 ch v =
 
 (****)
 
-let table t l =
-  let find v = try Dictionary.find t v with Not_found -> -1 in
-  let h = Hashtbl.create 17 in
-  List.iter (fun (s, cat) -> Hashtbl.add h (find s) cat) l;
-  h
-
-module IntMap =
-  Map.Make (struct type t = int let compare (x : int) y = compare x y end)
+module IntTbl =
+  Hashtbl.Make
+    (struct
+       type t = int
+       let hash key = (* Thomas Wang downscaling hash function *)
+         let key = (lnot key) + (key lsl 18) in
+         let key = key lxor (key lsr 31) in
+         let key = key * 21 in
+         let key = key lxor (key lsr 11) in
+         let key = key + (key lsl 6) in
+         key lxor (key lsr 22)
+       let equal (x : int) y = x = y
+     end)
 
 module Bbox = Rtree.Bbox
 
 type state =
-  { mutable nodes : int IntMap.t;
+  { mutable nodes : int IntTbl.t;
     mutable node_prev_pos : int;
     mutable node_pos : int;
     mutable node_lat : int;
@@ -208,16 +213,16 @@ Format.eprintf "Categories@.";
   let (_, category) =
     Column_ops.group
       ~o2:(Column.named "linear" "way/category")
-      min assoc_idx assoc_categories
+      (fun x y -> if x < y then x else y) assoc_idx assoc_categories
   in
   Format.eprintf "Layers, bridges and tunnels@.";
   let _layer = s"layer" in
   let _bridge = s"bridge" in
   let _tunnel = s"tunnel" in
   let _no = s"no" in
-  let layers = Hashtbl.create 17 in
+  let layers = IntTbl.create 17 in
   for i = -5 to 5 do
-    Hashtbl.add layers (s (string_of_int i)) i
+    IntTbl.add layers (s (string_of_int i)) i
   done;
   let idx =
     Projection.filter_pred assoc_key
@@ -228,7 +233,7 @@ Format.eprintf "Categories@.";
     Column_ops.map_2
       (fun k v ->
          if k = _layer then
-           ((try Hashtbl.find layers v with Not_found -> 0) land 15) lsl 2
+           ((try IntTbl.find layers v with Not_found -> 0) land 15) lsl 2
          else if k = _bridge && v <> _no then
            1
          else (* k = _tunnel *) if v <> _no then
@@ -470,7 +475,7 @@ Format.eprintf "Build R-tree@.";
     let new_state () =
       { node_prev_pos = 0;
         node_pos = 0;
-        nodes = IntMap.empty;
+        nodes = IntTbl.create 256;
         node_lat = 0;
         node_lon = 0;
   (*
@@ -523,12 +528,12 @@ Format.eprintf "Build R-tree@.";
     let get_node st n lat lon =
   incr num;
       try
-        IntMap.find n st.nodes
+        IntTbl.find st.nodes n
       with Not_found ->
   incr miss;
         let n' = st.node_last in
         st.node_last <- st.node_last + 1;
-        st.nodes <- IntMap.add n n' st.nodes;
+        IntTbl.add st.nodes n n';
         write_node st n lat lon;
         n'
     in
@@ -599,7 +604,7 @@ Format.eprintf "miss: %d/%d@." !miss !num
     Column.length (Column.open_in (Column.named "linear" "sorted/edge/1")) in
   let t = Unix.gettimeofday () in
   let rec loop i =
-    if i land 4095 = 4095 then begin
+    if i land 16383 = 16383 then begin
       let p = float i /. float len in
       let t' = Unix.gettimeofday () in
       Util.set_msg

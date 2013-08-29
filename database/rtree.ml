@@ -16,10 +16,13 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+let min x y : int = if x < y then x else y
+let max x y : int = if x > y then x else y
+  
 module Bbox = struct
   let max_int = 2147483647
   let min_int = -2147483648
-  
+
   type t =
     { min_lat : int;
       max_lat : int;

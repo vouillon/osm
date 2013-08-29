@@ -32,6 +32,9 @@ let magic = "COLUMN0\n"
 
 (****)
 
+let min x y : int = if x < y then x else y
+let max x y : int = if x > y then x else y
+
 let sint_of_int i = let i' = i lsr 1 in if i land 1 = 1 then (-i' - 1) else i'
 
 let int_of_sint i = if i >= 0 then 2 * i else - 2 * i - 1

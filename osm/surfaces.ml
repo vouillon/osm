@@ -38,6 +38,23 @@ XXXX
 
 let _ = Printexc.record_backtrace true
 
+module IntTbl =
+  Hashtbl.Make
+    (struct
+       type t = int
+       let hash key = (* Thomas Wang downscaling hash function *)
+         let key = (lnot key) + (key lsl 18) in
+         let key = key lxor (key lsr 31) in
+         let key = key * 21 in
+         let key = key lxor (key lsr 11) in
+         let key = key + (key lsl 6) in
+         key lxor (key lsr 22)
+       let equal (x : int) y = x = y
+     end)
+
+let min x y : int = if x < y then x else y
+let max x y : int = if x > y then x else y
+
 let int_of_sint i = if i >= 0 then 2 * i else - 2 * i - 1
 
 let rec write_varint a p v =
@@ -209,19 +226,19 @@ let _ =
     let (_, category) =
       Column_ops.group
         ~o2:(Column.named dst "poly/category")
-        min assoc_idx assoc_categories
+        (fun x y -> if x < y then x else y) assoc_idx assoc_categories
     in
     Format.eprintf "Layer@.";
     let _layer = s"layer" in
-    let layers = Hashtbl.create 17 in
+    let layers = IntTbl.create 17 in
     for i = -5 to 5 do
-      Hashtbl.add layers (s (string_of_int i)) i
+      IntTbl.add layers (s (string_of_int i)) i
     done;
     let idx = Projection.filter assoc_key _layer in
     let layer_value = Projection.project idx assoc_val in
     let layer =
       Column_ops.map
-        (fun v -> try Hashtbl.find layers v with Not_found -> 0)
+        (fun v -> try IntTbl.find layers v with Not_found -> 0)
         layer_value
     in
     let poly = Projection.project idx assoc_idx in
