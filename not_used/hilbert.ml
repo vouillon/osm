@@ -293,6 +293,69 @@ let hilbert_coordinate_3 x y =
   done;
   !z
 
+(* More regular variant of hilbert_coordinate_1 *)
+let hilbert_coordinate_4 x y =
+  let mask = 0xffffffff in
+  let heven = x lxor y in
+  let noty = (lnot y) land mask in
+  let m00 = (lnot x) land noty in
+  let m10 = x land noty in
+  let notheven = lnot heven in
+  let n1 = ref 0 in
+  let n2 = ref 0 in
+  for k = 1 to 31 do
+(*
+    let n1' = (((m10 land (lnot !n2)) lor (m01 land !n2)) lxor !n1) lsr 1 in
+    let n2' = (((m11 land !n1) lor (m00 land (lnot !n1))) lxor !n2) lsr 1 in
+*)
+    let n1' = (m10 lxor (heven land !n2) lxor !n1) lsr 1 in
+    let n2' = (m00 lxor ((notheven) land !n1) lxor !n2) lsr 1 in
+    n1 := n1';
+    n2 := n2'
+  done;
+  let n0 = !n1 lxor !n2 in
+(*
+  let hodd = ((y land n0) lor (x land (lnot n0))) lxor !n1 in
+*)
+  let hodd = (x lxor (heven land n0)) lxor !n1 in
+  ((dilate hodd) lsl 1) lor (dilate heven) (*- min_int*)
+
+(* Optimized version of the previous function (log n) *)
+(* Could be improved a bit by optimizing the first and last iterations *)
+let hilbert_coordinate_5 x y =
+  let mask = 0xffffffff in
+  let heven = x lxor y in
+  let noty = (lnot y) land mask in
+  let m00 = (lnot x) land noty in
+  let m10 = x land noty in
+  let notheven = (lnot heven) land mask in
+  let a = ref (-1) in
+  let b = ref heven in
+  let c = ref m10 in
+  let d = ref notheven in
+  let e = ref (-1) in
+  let f = ref m00 in
+  for i = 0 to 4 do
+    let k = 1 lsl i in
+    let a' = (!a land (!a asr k)) lxor (!b land (!d lsr k)) in
+    let b' = (!a land (!b lsr k)) lxor (!b land (!e asr k)) in
+    let c' = (!a land (!c lsr k)) lxor (!b land (!f lsr k)) lxor !c in
+    let d' = (!d land (!a asr k)) lxor (!e land (!d lsr k)) in
+    let e' = (!d land (!b lsr k)) lxor (!e land (!e asr k)) in
+    let f' = (!d land (!c lsr k)) lxor (!e land (!f lsr k)) lxor !f in
+    a := a';
+    b := b';
+    c := c';
+    d := d';
+    e := e';
+    f := f'
+  done;
+  let n1 = !c in
+  let n2 = !f in
+  let n0 = n1 lxor n2 in
+  let hodd = (x lxor (heven land n0)) lxor n1 in
+  ((dilate hodd) lsl 1) lor (dilate heven) (*- min_int*)
+
 let _ =
   let accu = ref 0 in
   let x = ref 1 in

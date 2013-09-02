@@ -94,7 +94,6 @@ __m128i static dilate_sse_8 (__m128i x) {
   return x;
 }
 
-
 void hilbert_coordinate_sse (uint32_t * xs, uint32_t * ys, uint64_t * zs) {
   __m128i zero = _mm_setzero_si128 ();
   __m128i ones = _mm_cmpeq_epi8 (zero, zero);
@@ -401,18 +400,128 @@ void hilbert_coordinate_6 (uint32_t * x, uint32_t * y, uint64_t * z) {
   z[1] = z1;
 }
 
+uint64_t hilbert_coordinate_7 (uint32_t x, uint32_t y) {
+  uint32_t heven = x ^ y;
+  int32_t a = -1;
+  uint32_t b = heven;
+  uint32_t c = x & ~y;
+  uint32_t d = ~heven;
+  int32_t e = -1;
+  uint32_t f = ~x & ~y;
+  int i, k;
+  for (i = 0; i < 5; i++) {
+    k = 1 << i;
+    //    printf ("%x %x %x %x %x %x\n", a, b, c, d, e, f);
+    uint32_t a1 = a >> k;
+    uint32_t b1 = b >> k;
+    uint32_t c1 = c >> k;
+    uint32_t d1 = d >> k;
+    uint32_t e1 = e >> k;
+    uint32_t f1 = f >> k;
+    uint32_t a2 = (a & a1) ^ (b & d1);
+    uint32_t b2 = (a & b1) ^ (b & e1);
+    uint32_t c2 = (a & c1) ^ (b & f1) ^ c;
+    uint32_t d2 = (d & a1) ^ (e & d1);
+    uint32_t e2 = (d & b1) ^ (e & e1);
+    uint32_t f2 = (d & c1) ^ (e & f1) ^ f;
+    a = a2;
+    b = b2;
+    c = c2;
+    d = d2;
+    e = e2;
+    f = f2;
+  }
+  uint32_t n1 = c;
+  uint32_t n2 = f;
+  //  printf("7: %x %x\n", n1, n2);
+  uint32_t n0 = n1 ^ n2;
+  uint32_t hodd = x ^ (heven & n0) ^ n1;
+  return (dilate(hodd) << 1) | dilate(heven);
+}
+
+// Very close performance-wise to hilbert_coordinate_3, but less portable...
+uint64_t hilbert_coordinate_8 (uint32_t x, uint32_t y) {
+  uint32_t heven = x ^ y;
+  //  int32_t a = -1;
+  //  uint32_t b = heven;
+  //  uint32_t c = x & ~y;
+  __m128i heven_vect = _mm_cvtsi32_si128(heven);
+  __m128i x_vect = _mm_cvtsi32_si128(x);
+  __m128i u = _mm_set_epi32 (0, -1, heven, x & ~y);
+  //  uint32_t d = ~heven;
+  //  int32_t e = -1;
+  //  uint32_t f = ~x & ~y;
+  __m128i v = _mm_set_epi32 (0, ~heven, -1, ~x & ~y);
+  __m128i id_u = _mm_set_epi32 (0, -1, 0, 0);
+  __m128i id_v = _mm_set_epi32 (0, 0, -1, 0);
+  int i, k;
+  for (i = 0; i < 5; i++) {
+    k = 1 << i;
+    //    uint32_t a1 = a >> k;
+    //    uint32_t b1 = b >> k;
+    //    uint32_t c1 = c >> k;
+    //    uint32_t d1 = d >> k;
+    //    uint32_t e1 = e >> k;
+    //    uint32_t f1 = f >> k;
+    __m128i u1 = _mm_or_si128 (_mm_srli_epi32 (u, k),
+                               _mm_slli_epi32 (id_u, 32 - k));
+    __m128i v1 = _mm_or_si128 (_mm_srli_epi32 (v, k),
+                               _mm_slli_epi32 (id_v, 32 - k));
+    __m128i a = _mm_shuffle_epi32 (u, 3 << 6 | 2 << 4 | 2 << 2 | 2);
+    __m128i b = _mm_shuffle_epi32 (u, 3 << 6 | 1 << 4 | 1 << 2 | 1);
+    __m128i c = _mm_shuffle_epi32 (u, 3 << 6 | 3 << 4 | 3 << 2 | 0);
+    __m128i d = _mm_shuffle_epi32 (v, 3 << 6 | 2 << 4 | 2 << 2 | 2);
+    __m128i e = _mm_shuffle_epi32 (v, 3 << 6 | 1 << 4 | 1 << 2 | 1);
+    __m128i f = _mm_shuffle_epi32 (v, 3 << 6 | 3 << 4 | 3 << 2 | 0);
+    //    printf ("%x %x %x %x %x %x\n", _mm_cvtsi128_si32(a), _mm_cvtsi128_si32(b), _mm_cvtsi128_si32(c), _mm_cvtsi128_si32(d), _mm_cvtsi128_si32(e), _mm_cvtsi128_si32(f));
+    //    uint32_t a2 = (a & a1) ^ (b & d1);
+    //    uint32_t b2 = (a & b1) ^ (b & e1);
+    //    uint32_t c2 = (a & c1) ^ (b & f1) ^ c;
+    //    uint32_t d2 = (d & a1) ^ (e & d1);
+    //    uint32_t e2 = (d & b1) ^ (e & e1);
+    //    uint32_t f2 = (d & c1) ^ (e & f1) ^ f;
+    //    a = a2;
+    //    b = b2;
+    //    c = c2;
+    //    d = d2;
+    //    e = e2;
+    //    f = f2;
+    u = _mm_xor_si128 (_mm_xor_si128(_mm_and_si128(a, u1),
+                                     _mm_and_si128(b, v1)),
+                       c);
+    v = _mm_xor_si128 (_mm_xor_si128(_mm_and_si128(d, u1),
+                                     _mm_and_si128(e, v1)),
+                       f);
+  }
+  //  uint32_t n1 = c;
+  //  uint32_t n2 = f;
+  //  uint32_t hodd = x ^ (heven & n0) ^ n1;
+  //  return (dilate(hodd) << 1) | dilate(heven);
+  __m128i n0 = _mm_xor_si128(u, v);
+  __m128i hodd = _mm_xor_si128(_mm_and_si128(heven_vect, n0),
+                               _mm_xor_si128(x_vect, u));
+  //  printf("%x %x\n", hodd2, _mm_cvtsi128_si32(hodd));
+  __m128i hoddeven = _mm_unpacklo_epi32 (hodd, heven_vect);
+  __m128i zero = _mm_setzero_si128 ();
+  hoddeven = dilate_sse_8(_mm_unpacklo_epi8 (hoddeven, zero));
+  heven_vect = _mm_srli_si128(hoddeven, 8);
+  return _mm_cvtsi128_si64(_mm_or_si128(heven_vect,
+                                        _mm_slli_epi64 (hoddeven, 1)));
+}
+
 int main (void) {
   /*
+  {
   int i, j;
   for (i = 0; i < 4; i++) {
     for (j = 0; j < 4; j++) {
       printf ("%d %d %ld %ld\n", i, j,
-              hilbert_coordinate_1(i,j), hilbert_coordinate_2(i,j));
+              hilbert_coordinate_7(i,j), hilbert_coordinate_8(i,j));
     }
   }
+  }
   */
-
-#if 0
+#if 1
   uint32_t x = 1;
   uint32_t y = 1;
   uint64_t accu = 0;
@@ -420,7 +529,7 @@ int main (void) {
   for (i = 0; i < 30000000; i++) {
     x *= 2234039081;
     y *= 269614307;
-    accu += hilbert_coordinate_4(x, y);
+    accu += hilbert_coordinate_3(x, y);
   }
   printf ("%lx\n", accu);
 
@@ -531,4 +640,3 @@ bd = db = c
 dc = cd = b
 
 */
-
