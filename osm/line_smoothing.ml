@@ -172,8 +172,10 @@ Format.eprintf "%f@." cos;
       j := k
     end
   done;
-  interpolate_1d d' x x1 x2 !j n;
-  interpolate_1d d' y y1 y2 !j n;
+  if n > 0 then begin
+    interpolate_1d d' x x1 x2 !j n;
+    interpolate_1d d' y y1 y2 !j n
+  end;
   ((x, y), (x1, y1), (x2, y2))
 
 let remove_duplicates n d x y =
