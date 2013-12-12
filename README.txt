@@ -5,7 +5,7 @@ This software only works on 64-bit machines.
 The following external libraries are needed: camlzip, cairo, lablgtk.
 They can be install through opam:
 
-   opam install camlzip cairo lablgtk
+   opam install camlzip cairo2 lablgtk
 
 To compile, just type 'make'.
 
