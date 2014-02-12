@@ -157,7 +157,7 @@ let open_in ?(node_size=1024) dir =
     Array.of_list (open_levels dir 1)))
 
 let bounding_box (_, levels) =
-  let a = Mapped_file.array levels.(0) in
+  let a = Mapped_file.array levels.(Array.length levels - 1) in
   let bbox = ref Bbox.empty in
   for i = 0 to Bigarray.Array1.dim a / 4 - 1 do
     let bbox' =
