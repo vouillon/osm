@@ -6,7 +6,7 @@ let dilate x =
   let x = (x lor (x lsl 1)) land  0x5555555555555555 in
   x
 
-(* Encoding and decoding the Hilbert order, Xian Lu and Gunther Schrack *)
+(* Encoding and decoding the Hilbert order, Xian Liu and Gunther Schrack *)
 
 let hilbert_coordinate_1 x y =
   let mask = 0xffffffff in

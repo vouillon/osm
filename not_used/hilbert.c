@@ -439,6 +439,76 @@ uint64_t hilbert_coordinate_7 (uint32_t x, uint32_t y) {
   return (dilate(hodd) << 1) | dilate(heven);
 }
 
+#ifdef __SSE2__
+
+void hilbert_coordinate_7_sse (uint32_t * xs, uint32_t * ys, uint64_t * zs) {
+  __m128i zero = _mm_setzero_si128 ();
+  __m128i ones = _mm_cmpeq_epi8 (zero, zero);
+
+  __m128i x = _mm_loadu_si128 ((__m128i *) xs);
+  __m128i y = _mm_loadu_si128 ((__m128i *) ys);
+  __m128i heven = _mm_xor_si128 (x, y);
+  __m128i notx = _mm_xor_si128 (x, ones);
+  __m128i noty = _mm_xor_si128 (y, ones);
+
+  __m128i a = ones;
+  __m128i b = heven;
+
+  __m128i c = _mm_and_si128 (x, noty);
+  __m128i d = _mm_xor_si128 (heven, ones);
+  __m128i e = ones;
+  __m128i f = _mm_and_si128 (notx, noty);
+  int i, k;
+  for (i = 0, k = 1; i < 5; i++, k=k+k) {
+    //    k = 1 << i;
+    //    printf ("%x %x %x %x %x %x\n", a, b, c, d, e, f);
+    __m128i k1 = _mm_set_epi32(0, 0, 0, k);
+    __m128i a1 = _mm_sra_epi32 (a, k1);
+    __m128i b1 = _mm_srl_epi32 (b, k2);
+    __m128i c1 = _mm_srl_epi32 (c, k2);
+    __m128i d1 = _mm_srl_epi32 (d, k2);
+    __m128i e1 = _mm_sra_epi32 (e, k2);
+    __m128i f1 = _mm_srl_epi32 (f, k2);
+
+    __m128i a2 = _mm_xor_si128 (_mm_and_si128 (a, a1), _mm_and_si128 (b, d1));
+    __m128i b2 = _mm_xor_si128 (_mm_and_si128 (a, b1), _mm_and_si128 (b, e1));
+    __m128i c2 =
+      _mm_xor_si128 (_mm_xor_si128 (_mm_and_si128 (a, c1),
+                                    _mm_and_si128 (b, f1)), c);
+    __m128i d2 = _mm_xor_si128 (_mm_and_si128 (d, a1), _mm_and_si128 (e, d1));
+    __m128i e2 = _mm_xor_si128 (_mm_and_si128 (d, b1), _mm_and_si128 (e, e1));
+    __m128i f2 =
+      _mm_xor_si128 (_mm_xor_si128 (_mm_and_si128 (d, c1),
+                                    _mm_and_si128 (e, f1)), f);
+    a = a2;
+    b = b2;
+    c = c2;
+    d = d2;
+    e = e2;
+    f = f2;
+  }
+  __m128i n1 = c;
+  __m128i n2 = f;
+  //  printf("7: %x %x\n", n1, n2);
+  __m128i n0 = _mm_xor_si128 (n1, n2);
+  __m128i hodd = _mm_xor_si128 (_mm_xor_si128 (x, n1),
+                                _mm_and_si128 (heven, n0));
+  __m128i heven2 = _mm_unpackhi_epi8 (heven, zero);
+  __m128i heven1 = _mm_unpacklo_epi8 (heven, zero);
+  __m128i hodd2 = _mm_unpackhi_epi8 (hodd, zero);
+  __m128i hodd1 = _mm_unpacklo_epi8 (hodd, zero);
+
+  __m128i z1 = _mm_or_si128(_mm_slli_epi16(dilate_sse_8 (hodd1), 1),
+                            dilate_sse_8 (heven1));
+  __m128i z2 = _mm_or_si128(_mm_slli_epi16(dilate_sse_8 (hodd2), 1),
+                            dilate_sse_8 (heven2));
+
+  _mm_storeu_si128((__m128i *) zs, z1);
+  _mm_storeu_si128((__m128i *) (zs + 2), z2);
+}
+
+#endif
+
 // Very close performance-wise to hilbert_coordinate_3, but less portable...
 uint64_t hilbert_coordinate_8 (uint32_t x, uint32_t y) {
   uint32_t heven = x ^ y;
