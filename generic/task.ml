@@ -19,6 +19,7 @@
 (*
 TODO:
 - error handling
+- possibility to choose the buffer size + fallback if data is too large
 - clear marshalled when large
 - should keep track of the state of each process (idle or not)
   ==> deal with several function invocation (either failure or queueing?)
@@ -47,7 +48,7 @@ type 'a future_state = Running of indirect | Finished of 'a
 
 type 'a future = 'a future_state ref
 
-let mem_size = 1 lsl 24
+let mem_size = 1 lsl 25
 
 external processor_count : unit -> int = "task_processor_count"
 
