@@ -113,8 +113,19 @@ let spawn f =
     let (sr, cw) = Unix.pipe () in
     let fd = Unix.openfile "/dev/zero" [Unix.O_RDWR] 0 in
     let mem =
-      Bigarray.Array1.map_file
-        fd Bigarray.char Bigarray.c_layout true mem_size
+      try
+        Bigarray.Array1.map_file
+          fd Bigarray.char Bigarray.c_layout true mem_size
+      with Sys_error _ ->
+        (* Mac OS X does not support this, so we use a temp file instead. *)
+        let (nm, ch) = Filename.open_temp_file "mmap" "" in
+        Sys.remove nm;
+        let mem =
+          Bigarray.Array1.map_file (Unix.descr_of_out_channel ch)
+            Bigarray.char Bigarray.c_layout true mem_size
+        in
+        close_out ch;
+        mem
     in
     Unix.close fd;
     match Unix.fork () with
