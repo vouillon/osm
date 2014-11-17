@@ -55,7 +55,7 @@ surfaces: $(OBJS) osm/douglas_peucker.cmx osm/lib/osm_category.cmx osm/surfaces.
 highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-contraction: $(OBJS) osm/contraction.cmx
+contraction: $(OBJS) osm/lib/osm_contraction.cmx osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/lib/osm_category.cmx osm/display.cmx

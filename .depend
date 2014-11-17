@@ -89,10 +89,10 @@
     database/column.cmi
 ./osm/coastline.cmx : generic/util.cmx osm/lib/osm_coastline.cmx \
     database/column.cmx
-./osm/contraction.cmo : database/sorting.cmi database/column_ops.cmi \
-    database/column.cmi generic/bitvect.cmi generic/binary_heap.cmi
-./osm/contraction.cmx : database/sorting.cmx database/column_ops.cmx \
-    database/column.cmx generic/bitvect.cmx generic/binary_heap.cmx
+./osm/contraction.cmo : database/sorting.cmi osm/lib/osm_contraction.cmo \
+    database/column_ops.cmi database/column.cmi generic/bitvect.cmi
+./osm/contraction.cmx : database/sorting.cmx osm/lib/osm_contraction.cmx \
+    database/column_ops.cmx database/column.cmx generic/bitvect.cmx
 ./osm/display.cmo : database/rtree.cmi osm/routing.cmi \
     osm/lib/osm_category.cmi generic/lru_cache.cmi osm/line_smoothing.cmi \
     osm/geometry.cmi osm/douglas_peucker.cmi database/column.cmi
@@ -122,9 +122,15 @@
 ./osm/lib/osm_clipping.cmx : ./osm/lib/osm_clipping.cmi
 ./osm/lib/osm_clipping.cmi :
 ./osm/lib/osm_coastline.cmo : generic/util.cmi database/rtree.cmi \
-    osm/geometry.cmi osm/douglas_peucker.cmi database/column.cmi
+    osm/lib/osm_clipping.cmi osm/geometry.cmi osm/douglas_peucker.cmi \
+    database/column.cmi
 ./osm/lib/osm_coastline.cmx : generic/util.cmx database/rtree.cmx \
-    osm/geometry.cmx osm/douglas_peucker.cmx database/column.cmx
+    osm/lib/osm_clipping.cmx osm/geometry.cmx osm/douglas_peucker.cmx \
+    database/column.cmx
+./osm/lib/osm_contraction.cmo : database/column.cmi generic/bitvect.cmi \
+    generic/binary_heap.cmi
+./osm/lib/osm_contraction.cmx : database/column.cmx generic/bitvect.cmx \
+    generic/binary_heap.cmx
 ./osm/line_smoothing.cmo : ./osm/line_smoothing.cmi
 ./osm/line_smoothing.cmx : ./osm/line_smoothing.cmi
 ./osm/line_smoothing.cmi :
