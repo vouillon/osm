@@ -107,7 +107,7 @@ let log2 x =
 
 (****)
 
-module Surface = Category.Make (struct
+module Surface = Osm_category.Make (struct
   type t =
     [ `Water | `Forest | `Grass | `Heath | `Rock | `Sand | `Glacier
     | `Farmland | `Residential | `Commercial
@@ -115,7 +115,7 @@ module Surface = Category.Make (struct
     | `Highway_residential | `Highway_unclassified | `Highway_living_street
     | `Highway_service | `Highway_pedestrian | `Highway_track
     | `Highway_footway | `Highway_path ]
-  let list = 
+  let list =
     [ `Water; `Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
       `Farmland; `Residential; `Commercial;
       `Industrial; `Park; `Cemetery; `Parking; `Building;
@@ -124,7 +124,7 @@ module Surface = Category.Make (struct
       `Highway_footway; `Highway_path ]
 end)
 
-module Linear_feature = Category.Make (struct
+module Linear_feature = Osm_category.Make (struct
   type t =
     [ `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
     | `Motorway_link | `Trunk_link | `Primary_link
@@ -832,7 +832,7 @@ let set_surface_color ctx cat =
   	   Cairo.set_source_rgb ctx 0.1 0.7 0.2
   | `Grass ->
   	   Cairo.set_source_rgb ctx 0.3 0.9 0.3
-  | `Heath -> 
+  | `Heath ->
   	   Cairo.set_source_rgb ctx 0.59 0.74 0.42
   | `Rock ->
   	   Cairo.set_source_rgb ctx 0.37 0.42 0.49
@@ -1923,7 +1923,7 @@ let t = Unix.gettimeofday () in
      Cairo.save ctx;
      (* Workaround for a Cairo bug (in ATI Catalyst drivers?): *)
      if st.active then Cairo.set_operator ctx Cairo.SOURCE;
-     Cairo.fill_preserve ctx; 
+     Cairo.fill_preserve ctx;
      Cairo.restore ctx;
      Cairo.clip ctx;
      draw_route st ctx;

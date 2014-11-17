@@ -108,7 +108,7 @@ type state =
     mutable prev_bbox : Bbox.t;
     mutable bbox : Bbox.t }
 
-module Feature = Category.Make (struct
+module Feature = Osm_category.Make (struct
   type t =
     [ `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
     | `Motorway_link | `Trunk_link | `Primary_link

@@ -118,7 +118,7 @@ let compute_order out latitude longitude =
 
 let _ = Column.set_database "/tmp/osm"
 
-module Surface = Category.Make (struct
+module Surface = Osm_category.Make (struct
   type t =
     [ `Water | `Forest | `Grass | `Heath | `Rock | `Sand | `Glacier
     | `Farmland | `Residential | `Commercial
@@ -126,7 +126,7 @@ module Surface = Category.Make (struct
     | `Highway_residential | `Highway_unclassified | `Highway_living_street
     | `Highway_service | `Highway_pedestrian | `Highway_track
     | `Highway_footway | `Highway_path ]
-  let list = 
+  let list =
     [ `Water; `Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
       `Farmland; `Residential; `Commercial;
       `Industrial; `Park; `Cemetery; `Parking; `Building;
