@@ -152,7 +152,7 @@ type bbox = Bbox.t =
 
 let bounding_box ratio x_min y_min x_max y_max =
   let ratio = float ratio in
-  let to_lat y = truncate (Geometry.y_to_lat (y *. 10_000_000.) /. ratio) in
+  let to_lat y = truncate (Osm_geometry.y_to_lat (y *. 10_000_000.) /. ratio) in
   let to_lon x = truncate (x *. 10_000_000. /. ratio) in
   { min_lat = to_lat y_min; max_lat = to_lat y_max;
     min_lon = to_lon x_min; max_lon = to_lon x_max }
@@ -213,7 +213,7 @@ let to_deg x = x * 50
 let distance_to_box bbox lat lon =
   let lat' = clamp lat (to_deg bbox.min_lat) (to_deg bbox.max_lat) in
   let lon' = clamp lon (to_deg bbox.min_lon) (to_deg bbox.max_lon) in
-  Geometry.distance lat lon lat' lon'
+  Osm_geometry.distance lat lon lat' lon'
 
 let nearest_point = lazy begin
   let (leaves, routine_nodes) =
@@ -226,7 +226,7 @@ let nearest_point = lazy begin
        let dist = ref max_int in
        for i = 0 to Array.length node_lat - 1 do
          let d =
-           Geometry.distance lat lon (to_deg node_lat.(i)) (to_deg node_lon.(i))
+           Osm_geometry.distance lat lon (to_deg node_lat.(i)) (to_deg node_lon.(i))
          in
          if d < !dist then begin
            dist := d;
@@ -431,7 +431,7 @@ let decode_leaf ratio leaves i =
   let lon = ref 0 in
   while !pos < node_len + 4 do
     let v = !lat + read_signed_varint buf pos in
-    y.(!i) <- Geometry.lat_to_y (float (v * linear_ratio));
+    y.(!i) <- Osm_geometry.lat_to_y (float (v * linear_ratio));
     lat := v;
     let v = !lon + read_signed_varint buf pos in
     x.(!i) <- float (v * linear_ratio);
@@ -511,7 +511,7 @@ let decode_coastline ratio leaves i =
       lon := !lon + read_signed_varint buf pos;
 (*if j = 0 then Format.eprintf "%d %d@." !lon !lat;*)
       x.(j) <- float (!lon * ratio);
-      y.(j) <- Geometry.lat_to_y (float (!lat * ratio));
+      y.(j) <- Osm_geometry.lat_to_y (float (!lat * ratio));
     done;
     x.(l) <- x.(0);
     y.(l) <- y.(0);
@@ -602,7 +602,7 @@ let decode_surfaces ratio leaves i =
       lat := !lat + read_signed_varint buf pos;
       lon := !lon + read_signed_varint buf pos;
       x.(j) <- float (!lon * ratio);
-      y.(j) <- Geometry.lat_to_y (float (!lat * ratio));
+      y.(j) <- Osm_geometry.lat_to_y (float (!lat * ratio));
     done;
     x.(l) <- x.(0);
     y.(l) <- y.(0);
@@ -617,7 +617,7 @@ let prepare_surfaces lst =
        (fun (cat, layer, ways) ->
           let area =
             List.fold_left
-              (fun a (x, y) -> a +. Geometry.polygon_area_float x y) 0. ways in
+              (fun a (x, y) -> a +. Osm_geometry.polygon_area_float x y) 0. ways in
           (layer, truncate (area +. 0.5), cat, ways))
        lst)
 
@@ -733,7 +733,7 @@ let find_marker st x y =
   let scale = 256. /. 360. *. 2. ** st.level in
   let x' = (float st.rect.x +. x) /. scale in
   let y' = -. (float st.rect.y +. y) /. scale in
-  let lat = truncate (Geometry.y_to_lat (y' *. 10_000_000.)) in
+  let lat = truncate (Osm_geometry.y_to_lat (y' *. 10_000_000.)) in
   let lon = truncate ((x' *. 10_000_000.)) in
   Format.eprintf "%d %d@." lat lon;
   let (d, (i, lat, lon)) = Lazy.force nearest_point lat lon in
@@ -1484,7 +1484,7 @@ let linear_features =
        if List.memq (Linear_feature.of_id cat) ignored_way_cats then
          item
        else
-         (info, List.filter (fun (x, y) -> Array.length x > 0) (List.map (fun (x, y) -> Douglas_peucker.perform eps x y) ways)))
+         (info, List.filter (fun (x, y) -> Array.length x > 0) (List.map (fun (x, y) -> Osm_douglas_peucker.perform eps x y) ways)))
     linear_features
 in
 (**)
@@ -1516,7 +1516,7 @@ Format.eprintf "Lines: %d nodes@." !n;
 let n = ref 0 in
 let n' = ref 0 in
 let m = ref 0 in
-Array.iter (fun ((cat, _, _, _), ways) -> if not (List.memq (Linear_feature.of_id cat) ignored_way_cats) then begin incr m; List.iter (fun (x, y) -> n := !n + Array.length x; let eps = (10_000_000. /. scale) in let (x', y') = Douglas_peucker.perform eps x y in n' := !n' + Array.length x') ways end) linear_features';
+Array.iter (fun ((cat, _, _, _), ways) -> if not (List.memq (Linear_feature.of_id cat) ignored_way_cats) then begin incr m; List.iter (fun (x, y) -> n := !n + Array.length x; let eps = (10_000_000. /. scale) in let (x', y') = Osm_douglas_peucker.perform eps x y in n' := !n' + Array.length x') ways end) linear_features';
 Format.eprintf "Lines: %d nodes (%d), %d elements (%.2f%%)@." !n !n' !m (100. *. float !m /. float (Array.length linear_features'));
 end;
 
@@ -1722,7 +1722,7 @@ let draw_route st ctx =
             float ((x + linear_ratio / 2 - 1) / linear_ratio * linear_ratio)
           in
           (approx lon /. 10_000_000.,
-           Geometry.lat_to_y (approx lat) /. 10_000_000.))
+           Osm_geometry.lat_to_y (approx lat) /. 10_000_000.))
        st.path
    in
    begin match path with
@@ -1741,8 +1741,8 @@ let draw_route st ctx =
    begin match st.marker1 with
      Some (_, lat, lon) ->
        let x = lon in
-       let y = Geometry.lat_to_y (lat *. 10_000_000.) /. 10_000_000. in
-       Cairo.arc ctx (x *. scale) (y *. scale) 4. 0. (2. *. Geometry.pi);
+       let y = Osm_geometry.lat_to_y (lat *. 10_000_000.) /. 10_000_000. in
+       Cairo.arc ctx (x *. scale) (y *. scale) 4. 0. (2. *. Osm_geometry.pi);
        Cairo.set_source_rgb ctx 1. 0. 0.;
        Cairo.fill ctx
    | None ->
@@ -1751,8 +1751,8 @@ let draw_route st ctx =
    begin match st.marker2 with
      Some (_, lat, lon) ->
        let x = lon in
-       let y = Geometry.lat_to_y (lat *. 10_000_000.) /. 10_000_000. in
-       Cairo.arc ctx (x *. scale) (y *. scale) 4. 0. (2. *. Geometry.pi);
+       let y = Osm_geometry.lat_to_y (lat *. 10_000_000.) /. 10_000_000. in
+       Cairo.arc ctx (x *. scale) (y *. scale) 4. 0. (2. *. Osm_geometry.pi);
        Cairo.set_source_rgb ctx 0. 0.6 0.;
        Cairo.fill ctx
    | None ->

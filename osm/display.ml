@@ -90,7 +90,7 @@ let scale = compute_scale st in
 st.rect <-
   { st.rect with
     x = truncate (!lon *. scale) - width / 2;
-    y = - truncate (Geometry.lat_to_y (!lat *. 10_000_000.) /. 10_000_000. *. scale) - height / 2 };
+    y = - truncate (Osm_geometry.lat_to_y (!lat *. 10_000_000.) /. 10_000_000. *. scale) - height / 2 };
 Format.eprintf "%d %d@." st.rect.x st.rect.y;
 
 ignore (GMain.Main.init ());

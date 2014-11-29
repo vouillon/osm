@@ -452,9 +452,9 @@ let simplify level polys =
   (truncate ratio,
    List.fold_left
      (fun lst (lon, lat) ->
-        let (lon, lat) = Douglas_peucker.perform ratio lon lat in
+        let (lon, lat) = Osm_douglas_peucker.perform ratio lon lat in
         if
-          abs_float (Geometry.polygon_area_float lon lat) <= small_area
+          abs_float (Osm_geometry.polygon_area_float lon lat) <= small_area
         then
           lst
         else
@@ -490,7 +490,7 @@ Format.eprintf "==> %d@." (List.length l);
          let (lon_min, lat_min, lon_max, lat_max) = ring_bbox p in
          let lat = truncate ((lat_min +. lat_max) /. 2.) +  90_0000000 in
          let lon = truncate ((lon_min +. lon_max) /. 2.) + 180_0000000 in
-         (Geometry.hilbert_coordinate lat lon, p))
+         (Osm_geometry.hilbert_coordinate lat lon, p))
       a
   in
   Array.sort (fun (x, _) (x', _) -> compare x x') a;

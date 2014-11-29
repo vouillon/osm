@@ -31,7 +31,7 @@ let compute_order out latitude longitude =
     if lat <> max_int then begin
       let lat = lat +  90_0000000 in
       let lon = lon + 180_0000000 in
-      Column.append o (Geometry.hilbert_coordinate lat lon);
+      Column.append o (Osm_geometry.hilbert_coordinate lat lon);
       loop ()
     end
   in
@@ -211,7 +211,7 @@ List.iter (fun (k,v) -> Format.eprintf "%s(%d)=%s(%d)@." (Dictionary.get dict k)
       if w = w' && info.P.speed > 0. then begin
         if info.P.backward_speed <= 0. then
           info.P.backward_speed <- info.P.speed;
-	let dist = Geometry.distance lat lon lat' lon' in
+	let dist = Osm_geometry.distance lat lon lat' lon' in
 (*
 	Format.eprintf "%d %d %d %d %d@." lon lat lon' lat' dist;
 *)
