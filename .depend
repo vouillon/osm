@@ -93,12 +93,10 @@
     database/column_ops.cmi database/column.cmi generic/bitvect.cmi
 ./osm/contraction.cmx : database/sorting.cmx osm/lib/osm_contraction.cmx \
     database/column_ops.cmx database/column.cmx generic/bitvect.cmx
-./osm/display.cmo : database/rtree.cmi osm/routing.cmi \
-    osm/lib/osm_category.cmi generic/lru_cache.cmi osm/line_smoothing.cmi \
-    osm/geometry.cmi osm/douglas_peucker.cmi database/column.cmi
-./osm/display.cmx : database/rtree.cmx osm/routing.cmx \
-    osm/lib/osm_category.cmx generic/lru_cache.cmx osm/line_smoothing.cmx \
-    osm/geometry.cmx osm/douglas_peucker.cmx database/column.cmx
+./osm/display.cmo : database/rtree.cmi osm/lib/osm_display.cmo \
+    osm/geometry.cmi database/column.cmi
+./osm/display.cmx : database/rtree.cmx osm/lib/osm_display.cmx \
+    osm/geometry.cmx database/column.cmx
 ./osm/douglas_peucker.cmo : ./osm/douglas_peucker.cmi
 ./osm/douglas_peucker.cmx : ./osm/douglas_peucker.cmi
 ./osm/douglas_peucker.cmi :
@@ -131,6 +129,12 @@
     generic/binary_heap.cmi
 ./osm/lib/osm_contraction.cmx : database/column.cmx generic/bitvect.cmx \
     generic/binary_heap.cmx
+./osm/lib/osm_display.cmo : database/rtree.cmi osm/routing.cmi \
+    osm/lib/osm_category.cmi generic/lru_cache.cmi osm/line_smoothing.cmi \
+    osm/geometry.cmi osm/douglas_peucker.cmi database/column.cmi
+./osm/lib/osm_display.cmx : database/rtree.cmx osm/routing.cmx \
+    osm/lib/osm_category.cmx generic/lru_cache.cmx osm/line_smoothing.cmx \
+    osm/geometry.cmx osm/douglas_peucker.cmx database/column.cmx
 ./osm/line_smoothing.cmo : ./osm/line_smoothing.cmi
 ./osm/line_smoothing.cmx : ./osm/line_smoothing.cmi
 ./osm/line_smoothing.cmi :

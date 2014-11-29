@@ -58,7 +58,7 @@ highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
 contraction: $(OBJS) osm/lib/osm_contraction.cmx osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/lib/osm_category.cmx osm/display.cmx
+display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/lib/osm_category.cmx osm/lib/osm_display.cmx osm/display.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 coastline: $(OBJS) osm/lib/osm_category.cmx osm/douglas_peucker.cmx osm/lib/osm_clipping.cmx osm/lib/osm_coastline.cmx osm/coastline.cmx
