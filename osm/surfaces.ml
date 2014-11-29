@@ -107,7 +107,7 @@ let compute_order out latitude longitude =
     if lat <> max_int then begin
       let lat = lat +  90_0000000 in
       let lon = lon + 180_0000000 in
-      Column.append o (Geometry.hilbert_coordinate lat lon);
+      Column.append o (Osm_geometry.hilbert_coordinate lat lon);
       loop ()
     end
   in
@@ -118,7 +118,7 @@ let compute_order out latitude longitude =
 
 let _ = Column.set_database "/tmp/osm"
 
-module Surface = Category.Make (struct
+module Surface = Osm_category.Make (struct
   type t =
     [ `Water | `Forest | `Grass | `Heath | `Rock | `Sand | `Glacier
     | `Farmland | `Residential | `Commercial
@@ -126,7 +126,7 @@ module Surface = Category.Make (struct
     | `Highway_residential | `Highway_unclassified | `Highway_living_street
     | `Highway_service | `Highway_pedestrian | `Highway_track
     | `Highway_footway | `Highway_path ]
-  let list = 
+  let list =
     [ `Water; `Forest; `Grass; `Heath; `Rock; `Sand; `Glacier;
       `Farmland; `Residential; `Commercial;
       `Industrial; `Park; `Cemetery; `Parking; `Building;
@@ -574,7 +574,7 @@ Printf.fprintf ch "%d\n" (lon.(i) - !last_lon);
   add_polygon
 
 let simplify_way ratio (lat, lon) =
-  let (lat, lon) = Douglas_peucker.perform_int ratio lat lon in
+  let (lat, lon) = Osm_douglas_peucker.perform_int ratio lat lon in
   let delta = ratio / 2 - 1 in
   let l = Array.length lat in
   for i = 0 to l - 1 do
@@ -661,7 +661,7 @@ let _ =
     let (outer_way, inner_ways) = ways in
     let area =
       List.fold_left
-        (fun a (lat, lon) -> a + Geometry.polygon_area lon lat) 0
+        (fun a (lat, lon) -> a + Osm_geometry.polygon_area lon lat) 0
         (outer_way :: inner_ways)
     in
     if
@@ -758,7 +758,7 @@ let _ =
 	 List.iter
 	   (fun (role, (lat, lon)) ->
 	      let sign = if role = 0 then 1 else -1 in
-	      if Geometry.polygon_area lon lat * sign < 0 then begin
+	      if Osm_geometry.polygon_area lon lat * sign < 0 then begin
                 reverse lat; reverse lon
               end)
 	   ways;

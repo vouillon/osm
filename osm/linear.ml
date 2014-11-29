@@ -46,7 +46,7 @@ let compute_order out latitude longitude =
     if lat <> max_int then begin
       let lat = lat +  90_0000000 in
       let lon = lon + 180_0000000 in
-      Column.append o (Geometry.hilbert_coordinate lat lon);
+      Column.append o (Osm_geometry.hilbert_coordinate lat lon);
       loop ()
     end
   in
@@ -108,7 +108,7 @@ type state =
     mutable prev_bbox : Bbox.t;
     mutable bbox : Bbox.t }
 
-module Feature = Category.Make (struct
+module Feature = Osm_category.Make (struct
   type t =
     [ `Motorway | `Trunk | `Primary | `Secondary | `Tertiary
     | `Motorway_link | `Trunk_link | `Primary_link

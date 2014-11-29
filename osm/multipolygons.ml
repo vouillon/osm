@@ -529,7 +529,7 @@ try
       if debug () then begin
         if
           let (_, (px, py)) = coords.(i) in
-          not (Geometry.is_simple_polygon px py)
+          not (Osm_geometry.is_simple_polygon px py)
         then begin
           Format.eprintf "NOT SIMPLE (%d)@." i;
           raise Exit
@@ -538,7 +538,7 @@ try
       for j = 0 to len - 1 do
 	if i <> j then
 	  inclusion.(i).(j) <-
-            Geometry.polygon_in_polygon (snd coords.(i)) (snd coords.(j))
+            Osm_geometry.polygon_in_polygon (snd coords.(i)) (snd coords.(j))
       done
     done;
     if debug () then
@@ -552,11 +552,11 @@ try
       for j = 0 to i - 1 do
         if inclusion.(i).(j) && inclusion.(j).(i) then begin
           let mi =
-            Geometry.polygon_mostly_in_polygon
+            Osm_geometry.polygon_mostly_in_polygon
               (snd coords.(i)) (snd coords.(j))
           in
           let mj =
-            Geometry.polygon_mostly_in_polygon
+            Osm_geometry.polygon_mostly_in_polygon
               (snd coords.(j)) (snd coords.(i))
           in
 	  if debug () then

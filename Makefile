@@ -23,12 +23,12 @@ DATABASE=\
   projection.cmx table.cmx dictionary.cmx column_ops.cmx rtree.cmx
 
 OSM=\
-  geometry.cmx
+  lib/osm_geometry.cmx
 
 ROUTING=\
   routing_profile.cmx profile_car.cmx profile_pedestrian.cmx
 
-DIRS=-I generic -I database -I osm
+DIRS=-I generic -I database -I osm -I osm/lib
 
 OBJS= $(addprefix generic/,$(GENERIC)) $(addprefix database/,$(DATABASE)) \
       $(addprefix osm/,$(OSM))
@@ -46,22 +46,22 @@ load: $(OBJS) osm/parser.cmx osm/prepare.cmx
 multipolygons: $(OBJS) osm/multipolygons.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-linear: $(OBJS) osm/category.cmx osm/linear.cmx
+linear: $(OBJS) osm/lib/osm_category.cmx osm/linear.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-surfaces: $(OBJS) osm/douglas_peucker.cmx osm/category.cmx osm/surfaces.cmx
+surfaces: $(OBJS) osm/lib/osm_douglas_peucker.cmx osm/lib/osm_category.cmx osm/surfaces.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-contraction: $(OBJS) osm/contraction.cmx
+contraction: $(OBJS) osm/lib/osm_contraction.cmx osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/category.cmx osm/display.cmx
+display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/lib/osm_douglas_peucker.cmx osm/lib/osm_category.cmx osm/lib/osm_display.cmx osm/display.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-coastline: $(OBJS) osm/category.cmx osm/douglas_peucker.cmx osm/clipping.cmx osm/coastline.cmx
+coastline: $(OBJS) osm/lib/osm_category.cmx osm/lib/osm_douglas_peucker.cmx osm/lib/osm_clipping.cmx osm/lib/osm_coastline.cmx osm/coastline.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 clean::
