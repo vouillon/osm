@@ -58,8 +58,8 @@ let debug = ref false
 
 module Array1 = Bigarray.Array1
 
-let way_ids = Column.open_in (Column.named "highway" "way/id")
-let way_id k = Column.get way_ids k
+let way_ids = lazy (Column.open_in (Column.named "highway" "way/id"))
+let way_id k = Column.get (Lazy.force way_ids) k
 
 type t =
   { (* Nodes *)
