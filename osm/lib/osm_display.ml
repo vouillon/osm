@@ -216,8 +216,7 @@ let distance_to_box bbox lat lon =
   Geometry.distance lat lon lat' lon'
 
 let nearest_point = lazy begin
-  let (leaves, routine_nodes) =
-    Rtree.open_in (Column.file_in_database "highway/r_tree") in
+  let (leaves, routine_nodes) = Rtree.open_in "highway/r_tree" in
   let leaves = open_in leaves in
   Rtree.find_nearest_point routine_nodes distance_to_box
     (fun j lat lon ->
@@ -467,7 +466,7 @@ let decode_leaf ratio leaves =
 
 let open_tree name =
   let ratio = linear_ratio in
-  let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
+  let (leaves, tree) = Rtree.open_in name in
   let leaves = open_in leaves in
   (linear_ratio, decode_leaf ratio leaves, tree)
 
@@ -527,7 +526,7 @@ let open_tree name =
   let ch = open_in (Column.file_in_database (Filename.concat name "ratio")) in
   let ratio = int_of_string (input_line ch) in
   close_in ch;
-  let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
+  let (leaves, tree) = Rtree.open_in name in
   let leaves = open_in leaves in
   (ratio, decode_coastline ratio leaves, tree)
 
@@ -629,7 +628,7 @@ let open_tree name =
   let ch = open_in (Column.file_in_database (Filename.concat name "ratio")) in
   let ratio = int_of_string (input_line ch) in
   close_in ch;
-  let (leaves, tree) = Rtree.open_in (Column.file_in_database name) in
+  let (leaves, tree) = Rtree.open_in name in
   let leaves = open_in leaves in
   (ratio, decode_surfaces ratio leaves, tree)
 

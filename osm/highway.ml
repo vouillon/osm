@@ -250,7 +250,7 @@ List.iter (fun (k,v) -> Format.eprintf "%s(%d)=%s(%d)@." (Dictionary.get dict k)
   let weight = Column.freeze weight in
   let way_id = Column.freeze way_id in
   let flags = Column.freeze flags in
-  
+
 Format.eprintf "Reordering edges...@.";
   let (node_1, order) =
     Sorting.perform ~o1:(Column.named "highway" "edge/1bis")
@@ -273,8 +273,8 @@ Format.eprintf "Reordering edges...@.";
     Sorting.permute ~o:(Column.named "highway" "edge/flags_bis")
       rev_order flags in
 ()
-  
-    
+
+
 (*
 
   let l = Column.length (Column.open_in (Column.named "highway" "way/id")) in
@@ -285,7 +285,7 @@ Format.eprintf "%d@." i;
     let n = ref (Column.read node) in
     let lat = ref (Column.read latitude) in
     let lon = ref (Column.read longitude) in
-      
+
 ()
   done
 *)
@@ -342,7 +342,7 @@ type level =
   { mutable level_bbox : bbox;
     buffer : string;
     file : (int32, Bigarray.int32_elt) Mapped_file.output_stream;
-    mutable idx : int } 
+    mutable idx : int }
 
 let new_bbox () =
   { min_lat = max_int;
@@ -399,8 +399,9 @@ let _ =
         IntMap.find level !levels
       with Not_found ->
         let file =
-          Column.file_in_database (Format.sprintf "highway/r_tree/%d" level) in
-        Util.make_directories (Column.file_in_database file);
+          Column.file_in_database (Format.sprintf "highway/r_tree/%d" level)
+        in
+        Util.make_directories file;
         let st =
           { level_bbox = new_bbox ();
             buffer = String.create (16 * 1024);

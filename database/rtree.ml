@@ -18,7 +18,7 @@
 
 let min x y : int = if x < y then x else y
 let max x y : int = if x > y then x else y
-  
+
 module Bbox = struct
   let max_int = 2147483647
   let min_int = -2147483648
@@ -65,7 +65,7 @@ type level =
   { mutable level_bbox : Bbox.t;
     buffer : string;
     file : (int32, Bigarray.int32_elt) Mapped_file.output_stream;
-    mutable idx : int } 
+    mutable idx : int }
 
 module IntMap =
   Map.Make (struct type t = int let compare (x : int) y = compare x y end)
@@ -92,9 +92,8 @@ let rec append_rec stream level bbox =
     try
       IntMap.find level stream.levels
     with Not_found ->
-      let file =
-        Column.file_in_database (Format.sprintf "%s/%d" stream.name level) in
-      Util.make_directories (Column.file_in_database file);
+      let file = Format.sprintf "%s/%d" stream.name level in
+      Util.make_directories file;
       let st =
         { level_bbox = Bbox.empty;
           buffer = String.create (16 * 1024);
@@ -251,7 +250,7 @@ let find_nearest_point (type feature)
   in
   let rec loop queue =
     match Queue.find_min queue with
-      (d, Group (i, j))        -> 
+      (d, Group (i, j))        ->
 (*Format.eprintf "expand %d %d %d@." d i j;*)
         loop (expand i j (Queue.remove_min queue))
     | (d, Feature f) -> (d, f)
