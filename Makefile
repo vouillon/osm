@@ -28,7 +28,7 @@ OSM=\
 ROUTING=\
   routing_profile.cmx profile_car.cmx profile_pedestrian.cmx
 
-DIRS=-I generic -I database -I osm
+DIRS=-I generic -I database -I osm -I osm/lib
 
 OBJS= $(addprefix generic/,$(GENERIC)) $(addprefix database/,$(DATABASE)) \
       $(addprefix osm/,$(OSM))
@@ -58,7 +58,7 @@ highway: $(OBJS) $(addprefix osm/, $(ROUTING)) osm/highway.cmx
 contraction: $(OBJS) osm/contraction.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
-display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/category.cmx osm/display.cmx
+display: $(OBJS) osm/routing.cmx osm/line_smoothing.cmx osm/douglas_peucker.cmx osm/category.cmx osm/lib/osm_display.cmx osm/display.cmx
 	$(OCAMLOPT) $(OPTLINKFLAGS) -o $@ $^
 
 coastline: $(OBJS) osm/category.cmx osm/douglas_peucker.cmx osm/clipping.cmx osm/coastline.cmx
