@@ -340,7 +340,7 @@ type state =
 
 type level =
   { mutable level_bbox : bbox;
-    buffer : string;
+    buffer : bytes;
     file : (int32, Bigarray.int32_elt) Mapped_file.output_stream;
     mutable idx : int }
 
@@ -384,8 +384,8 @@ let _ =
   let latitude = Column.open_in (Column.named "highway" "sorted_node/lat") in
   let longitude = Column.open_in (Column.named "highway" "sorted_node/lon") in
 
-  let node_buf = String.create (16 * 1024) in
-  let edge_buf = String.create (16 * 1024) in
+  let node_buf = Bytes.create (16 * 1024) in
+  let edge_buf = Bytes.create (16 * 1024) in
 
   Util.make_directories (Column.file_in_database "highway/r_tree/0");
   let leaves = open_out (Column.file_in_database "highway/r_tree/0") in
@@ -404,7 +404,7 @@ let _ =
         Util.make_directories file;
         let st =
           { level_bbox = new_bbox ();
-            buffer = String.create (16 * 1024);
+            buffer = Bytes.create (16 * 1024);
             file = Mapped_file.open_out file node_size Mapped_file.int32;
             idx = 0 }
         in

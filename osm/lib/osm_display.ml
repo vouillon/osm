@@ -71,7 +71,7 @@ let sint_of_int i = let i' = i lsr 1 in if i land 1 = 1 then (-i' - 1) else i'
 
 let rec read_varint_rec a p v offs =
   let i = !p in
-  let c = Char.code a.[i] in
+  let c = Char.code (Bytes.get a i) in
   incr p;
   if c >= 0x80 then
     read_varint_rec a p (v lor ((c land 0x7f) lsl offs)) (offs + 7)
@@ -82,7 +82,8 @@ let read_varint a p = read_varint_rec a p 0 0
 
 let read_signed_varint a p = sint_of_int (read_varint a p)
 
-let read_int_2 s pos = Char.code s.[pos] lor (Char.code s.[pos + 1] lsl 8)
+let read_int_2 s pos =
+  Char.code (Bytes.get s pos) lor (Char.code (Bytes.get s (pos + 1)) lsl 8)
 
 (****)
 
@@ -450,8 +451,8 @@ let decode_leaf ratio leaves i =
     node := n1;
     let n2 = !node + read_signed_varint buf pos in
     node := n2;
-    let cat = Char.code buf.[!pos] in
-    let layer = Char.code buf.[!pos + 1] in
+    let cat = Char.code (Bytes.get buf !pos) in
+    let layer = Char.code (Bytes.get buf (!pos + 1)) in
     pos := !pos + 2;
     edges.(!i) <- (n1, n2, cat, layer, nodes);
     incr i
@@ -562,15 +563,15 @@ let surface_leaf_size = 2048
 let surface_leaf_read = ref 0
 
 let decode_surfaces ratio leaves i =
-  let buf = String.create surface_leaf_size in
+  let buf = Bytes.create surface_leaf_size in
   seek_in leaves (i * surface_leaf_size);
   really_input leaves buf 0 surface_leaf_size;
   let len = read_int_2 buf 0 in
   surface_leaf_read := !surface_leaf_read + len;
   let buf =
     if len > 1 then begin
-      let buf' = String.create (surface_leaf_size * len) in
-      String.blit buf 0 buf' 0 surface_leaf_size;
+      let buf' = Bytes.create (surface_leaf_size * len) in
+      Bytes.blit buf 0 buf' 0 surface_leaf_size;
       really_input leaves buf' surface_leaf_size
         ((len - 1) * surface_leaf_size);
       buf'
@@ -587,8 +588,8 @@ let decode_surfaces ratio leaves i =
   let lst = ref [] in
   for i = 0 to n - 1 do
     let l = read_int_2 buf (4 + 4 * i) in
-    let cat = Char.code buf.[4 + 4 * i + 2] in
-    let lay = Char.code buf.[4 + 4 * i + 3] - 128 in
+    let cat = Char.code (Bytes.get buf (4 + 4 * i + 2)) in
+    let lay = Char.code (Bytes.get buf (4 + 4 * i + 3)) - 128 in
     if cat <> 0 then begin
       if !ways <> [] then lst := (!category, !layer, List.rev !ways) :: !lst;
       category := cat;
@@ -686,7 +687,7 @@ let grow_surface pm window width height =
     let p =
       Cairo.Surface.create_similar
         (Cairo.get_target (Cairo_gtk.create window#misc#window))
-        Cairo.COLOR_ALPHA ~width ~height
+        Cairo.COLOR_ALPHA ~w:width ~h:height
     in
     let r = pm.valid_rect in
     begin match old_p with

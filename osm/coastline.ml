@@ -178,13 +178,13 @@ let load () =
   done;
 
 (*
-  let a = read_float ch in 
+  let a = read_float ch in
   Format.eprintf "%f@." a;
-  let a = read_float ch in 
+  let a = read_float ch in
   Format.eprintf "%f@." a;
-  let a = read_float ch in 
+  let a = read_float ch in
   Format.eprintf "%f@." a;
-  let a = read_float ch in 
+  let a = read_float ch in
   Format.eprintf "%f@." a;
 *)
 
@@ -399,7 +399,7 @@ let open_rtree name ratio =
   let ch = open_out nm in
   let lengths = Array.make (leaf_size / 4) 0 in
   let n = ref 0 in
-  let buf = String.make (2 * leaf_size) '\000' in
+  let buf = Bytes.make (2 * leaf_size) '\000' in
   let pos = ref 0 in
   let bbox = ref Bbox.empty in
   let last_lat = ref 0 in
@@ -534,4 +534,3 @@ let _ =
   build_rtree_simpl 6. "6";
   build_rtree_simpl 4. "4";
   build_rtree_simpl 2. "2"
-

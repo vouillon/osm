@@ -88,7 +88,8 @@ let open_out nm ?temp map_incr (kind, element_size) =
   let ch = Unix.openfile nm flags 0o600 in
   if temp then Unix.unlink nm;
   { ch = ch; map_incr = map_incr; len = 0;
-    ar = Bigarray.Array1.map_file ch kind Bigarray.c_layout true map_incr;
+    ar = Bigarray.array1_of_genarray
+           (Unix.map_file ch kind Bigarray.c_layout true [|map_incr|]);
     element_size = element_size }
 
 let resize s l =
@@ -97,7 +98,8 @@ let resize s l =
   if !l' < l then begin
     while !l' < l do l' := !l' + s.map_incr done;
     let kind = Bigarray.Array1.kind s.ar in
-    s.ar <- Bigarray.Array1.map_file s.ch kind Bigarray.c_layout true !l'
+    s.ar <- Bigarray.array1_of_genarray
+              (Unix.map_file s.ch kind Bigarray.c_layout true [|!l'|])
   end
 
 let output_array s = s.ar
@@ -111,12 +113,14 @@ type ('a, 'b) t = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
 let open_in nm kind =
   let flags = [Unix.O_RDWR] in
   let ch = Unix.openfile nm flags 0o600 in
-  let a = Bigarray.Array1.map_file ch kind Bigarray.c_layout true (-1) in
+  let a = Bigarray.array1_of_genarray
+             (Unix.map_file ch kind Bigarray.c_layout true [|-1|]) in
   Unix.close ch;
   a
 
 let open_in_fd ch kind =
-  let a = Bigarray.Array1.map_file ch kind Bigarray.c_layout true (-1) in
+  let a = Bigarray.array1_of_genarray
+             (Unix.map_file ch kind Bigarray.c_layout true [|-1|]) in
   Unix.close ch;
   a
 
@@ -125,6 +129,7 @@ let array a = a
 let freeze s =
   Unix.ftruncate s.ch s.len;
   let kind = Bigarray.Array1.kind s.ar in
-  let a = Bigarray.Array1.map_file s.ch kind Bigarray.c_layout true (-1) in
+  let a = Bigarray.array1_of_genarray
+             (Unix.map_file s.ch kind Bigarray.c_layout true [|-1|]) in
   Unix.close s.ch;
   a

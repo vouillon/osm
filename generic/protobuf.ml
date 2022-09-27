@@ -50,12 +50,10 @@ let buffer_copy b = {s = b.s; i = b.i; l = b.l}
 let empty_buffer = {s =""; i = 0; l = 0}
 
 let input_string ch l =
-  let s = String.create l in
-  really_input ch s 0 l;
-  s
+  really_input_string ch l
 
 let buffer_from_channel ch l =
-  buffer_from_substring (input_string ch l) 0 l
+  buffer_from_substring (really_input_string ch l) 0 l
 
 let chunk buf l =
   let i = buf.i in

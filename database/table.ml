@@ -32,7 +32,8 @@ let make ?len nm kind =
   let ch = Unix.openfile nm flags 0o600 in
   let l = match len with None -> map_incr | Some l -> l in
   { ch = ch;
-    ar = Bigarray.Array1.map_file ch kind Bigarray.c_layout true l }
+    ar = Bigarray.array1_of_genarray
+           (Unix.map_file ch kind Bigarray.c_layout true [|l|]) }
 
 let extend a l =
   let l' = ref (Bigarray.Array1.dim a.ar) in
@@ -41,7 +42,8 @@ Format.printf "RESIZE@.";
     while !l' < l do l' := !l' + map_incr done;
     let kind = Bigarray.Array1.kind a.ar in
     let layout = Bigarray.Array1.layout a.ar in
-    a.ar <- Bigarray.Array1.map_file a.ch kind layout true !l'
+    a.ar <- Bigarray.array1_of_genarray
+              (Unix.map_file a.ch kind layout true [|!l'|])
   end
 
 (****)

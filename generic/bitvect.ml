@@ -16,14 +16,14 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-type t = string
+type t = bytes
 
-let make n = String.make ((n + 7) lsr 3) '\000'
+let make n = Bytes.make ((n + 7) lsr 3) '\000'
 
 let set v i =
   let j = i lsr 3 in
-  v.[j] <- Char.chr (Char.code v.[j] lor (1 lsl (i land 7)))
+  Bytes.set v j (Char.chr (Char.code (Bytes.get v j) lor (1 lsl (i land 7))))
 
 let test v i =
   let j = i lsr 3 in
-  Char.code v.[j] land (1 lsl (i land 7)) <> 0
+  Char.code (Bytes.get v j) land (1 lsl (i land 7)) <> 0

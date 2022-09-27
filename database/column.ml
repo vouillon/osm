@@ -342,7 +342,7 @@ module Output_stream_write = struct
   type output_stream =
     { fd : Unix.file_descr;
       mutable pos : int;
-      write_buffer : string;
+      write_buffer : bytes;
       mutable buf_pos : int;
       buffer : int array;
       mutable i : int;
@@ -357,7 +357,7 @@ module Output_stream_write = struct
       Unix.openfile nm [Unix.O_RDWR; Unix.O_CREAT; Unix.O_TRUNC] 0o666 in
     if temp <> None then Unix.unlink nm;
     ignore (Unix.lseek fd 24 Unix.SEEK_SET);
-    { fd = fd; write_buffer = String.create (write_size + max_overhead);
+    { fd = fd; write_buffer = Bytes.create (write_size + max_overhead);
       buffer = Array.make block_size 0; table = [||];
       pos = 24; buf_pos = 0; i = 0; n = 0 }
 
@@ -372,11 +372,12 @@ module Output_stream_write = struct
     end;
     s.table.(s.n - 1) <- s.pos
 
-  external encode_chunk : string -> int -> int array -> int -> int -> int
+  external encode_chunk : bytes -> int -> int array -> int -> int -> int
     = "encode_chunk_to_string_ml"
 
   let write_int_2 a p v =
-    a.[p] <- Char.chr (v land 0xff); a.[p + 1] <- Char.chr ((v lsr 8) land 0xff)
+    Bytes.set a p (Char.chr (v land 0xff));
+    Bytes.set a (p + 1) (Char.chr ((v lsr 8) land 0xff))
 
   let write_int_8 a p v =
     let v = ref v in
@@ -394,7 +395,7 @@ module Output_stream_write = struct
     let len = min write_size s.buf_pos in
     really_write s.fd s.write_buffer 0 len;
     if len < s.buf_pos then
-      String.blit s.write_buffer len s.write_buffer 0 (s.buf_pos - len);
+      Bytes.blit s.write_buffer len s.write_buffer 0 (s.buf_pos - len);
     s.buf_pos <- s.buf_pos - len
 
   let flush_buffer s =
@@ -433,19 +434,19 @@ module Output_stream_write = struct
     if i > 0 then flush_buffer s;
     write_buffer s;
     assert (s.buf_pos = 0);
-    let a = String.create (8 * s.n) in
+    let a = Bytes.create (8 * s.n) in
     for j = 0 to s.n - 1 do
       write_int_8 a (8 * j) s.table.(j)
     done;
     assert (Unix.lseek s.fd 0 Unix.SEEK_CUR = s.pos);
-    really_write s.fd a 0 (String.length a);
+    really_write s.fd a 0 (Bytes.length a);
     let len = (s.n - 1) * block_size + (if i = 0 then block_size else i) in
 
-    let a = magic ^ String.create 16 in
+    let a = Bytes.cat (Bytes.of_string magic) (Bytes.create 16) in
     write_int_8 a 8 len;
     write_int_8 a 16 s.pos;
     ignore (Unix.lseek s.fd 0 Unix.SEEK_SET);
-    really_write s.fd a 0 (String.length a)
+    really_write s.fd a 0 (Bytes.length a)
 
   let close_out s =
     finish_output s;
@@ -648,8 +649,8 @@ let with_spec_2 f nm1 nm2 =
 (****)
 
 let is_column nm =
-  let ch = Pervasives.open_in (file_in_database nm) in
-  let s = String.make 8 ' ' in
+  let ch = Stdlib.open_in (file_in_database nm) in
+  let s = Bytes.make 8 ' ' in
   ignore (input ch s 0 8);
   close_in ch;
-  s = magic
+  Bytes.unsafe_to_string s = magic

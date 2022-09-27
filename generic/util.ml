@@ -43,12 +43,12 @@ let set_msg s =
 (****)
 
 let progress_bar f =
-  let s = "[                                       ]" in
+  let s = Bytes.of_string "[                                       ]" in
   let p = truncate (f *. 38.99) + 1 in
-  for i = 1 to p - 1 do s.[i] <- '=' done;
-  s.[p] <- '>';
-  for i = p + 1 to 39 do s.[i] <- ' ' done;
-  s
+  for i = 1 to p - 1 do Bytes.set s i '=' done;
+  Bytes.set s p '>';
+  for i = p + 1 to 39 do Bytes.set s i ' ' done;
+  Bytes.to_string s
 
 (****)
 
@@ -155,9 +155,9 @@ let rec make_directories f =
 
 (****)
 
-let string_extend s n c =
-  let s' = String.make n c in
-  String.blit s 0 s' 0 (String.length s);
+let bytes_extend s n c =
+  let s' = Bytes.make n c in
+  Bytes.blit s 0 s' 0 (Bytes.length s);
   s'
 
 let array_extend a n v =
@@ -168,44 +168,44 @@ let array_extend a n v =
 (****)
 
 module BitVect = struct
-  type t = string
-  let make n v = String.make n (if v then 'T' else 'F')
-  let test vect x = vect.[x] <> 'F'
-  let set vect x = vect.[x] <- 'T'
-  let clear vect x = vect.[x] <- 'F'
-  let copy = String.copy
-  let extend vect n v = string_extend vect n (if v then 'T' else 'F')
-  let sub = String.sub
+  type t = bytes
+  let make n v = Bytes.make n (if v then 'T' else 'F')
+  let test vect x = Bytes.get vect x <> 'F'
+  let set vect x = Bytes.set vect x 'T'
+  let clear vect x = Bytes.set vect x 'F'
+  let copy = Bytes.copy
+  let extend vect n v = bytes_extend vect n (if v then 'T' else 'F')
+  let sub = Bytes.sub
   let implies vect1 vect2 =
-    let l = String.length vect1 in
-    assert (String.length vect2 = l);
+    let l = Bytes.length vect1 in
+    assert (Bytes.length vect2 = l);
     let rec implies_rec vect1 vect2 i l =
       i = l ||
-      ((vect1.[i] <> 'T' || vect2.[i] = 'T') &&
+      ((Bytes.get vect1 i <> 'T' || Bytes.get vect2 i = 'T') &&
        implies_rec vect1 vect2 (i + 1) l)
     in
     implies_rec vect1 vect2 0 l
   let lnot vect =
-    let l = String.length vect in
-    let vect' = String.make l 'F' in
+    let l = Bytes.length vect in
+    let vect' = Bytes.make l 'F' in
     for i = 0 to l - 1 do
-      vect'.[i] <- if vect.[i] = 'F' then 'T' else 'F'
+      Bytes.set vect' i (if Bytes.get vect i = 'F' then 'T' else 'F')
     done;
     vect'
   let (land) vect1 vect2 =
-    let l = String.length vect1 in
-    assert (String.length vect2 = l);
-    let vect = String.make l 'F' in
+    let l = Bytes.length vect1 in
+    assert (Bytes.length vect2 = l);
+    let vect = Bytes.make l 'F' in
     for i = 0 to l - 1 do
-      vect.[i] <- if vect1.[i] = 'F' || vect2.[i] = 'F' then 'F' else 'T'
+      Bytes.set vect i (if Bytes.get vect1 i = 'F' || Bytes.get vect2 i = 'F' then 'F' else 'T')
     done;
     vect
   let (lor) vect1 vect2 =
-    let l = String.length vect1 in
-    assert (String.length vect2 = l);
-    let vect = String.make l 'F' in
+    let l = Bytes.length vect1 in
+    assert (Bytes.length vect2 = l);
+    let vect = Bytes.make l 'F' in
     for i = 0 to l - 1 do
-      vect.[i] <- if vect1.[i] = 'F' && vect2.[i] = 'F' then 'F' else 'T'
+      Bytes.set vect i (if Bytes.get vect1 i = 'F' && Bytes.get vect2 i = 'F' then 'F' else 'T')
     done;
     vect
 end

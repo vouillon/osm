@@ -37,17 +37,17 @@ let unsafe_blit_to_string a i s j l =
 *)
 
 external unsafe_blit_from_string : string -> int -> t -> int -> int -> unit
-  = "ml_blit_string_to_bigarray" "noalloc"
+  = "ml_blit_string_to_bigarray" [@@noalloc]
 
-external unsafe_blit_to_string : t -> int -> string -> int -> int -> unit
-  = "ml_blit_bigarray_to_string" "noalloc"
+external unsafe_blit_to_string : t -> int -> bytes -> int -> int -> unit
+  = "ml_blit_bigarray_to_string" [@@noalloc]
 
 let to_string a =
   let l = length a in
   if l > Sys.max_string_length then invalid_arg "Bytearray.to_string" else
-  let s = String.create l in
+  let s = Bytes.create l in
   unsafe_blit_to_string a 0 s 0 l;
-  s
+  Bytes.unsafe_to_string s
 
 let of_string s =
   let l = String.length s in
@@ -61,9 +61,9 @@ let sub a ofs len =
   then
     invalid_arg "Bytearray.sub"
   else begin
-    let s = String.create len in
+    let s = Bytes.create len in
     unsafe_blit_to_string a ofs s 0 len;
-    s
+    Bytes.unsafe_to_string s
   end
 
 let rec prefix_rec a i a' i' l =
@@ -81,12 +81,6 @@ let blit_from_string s i a j l =
            || j < 0 || j > length a - l
   then invalid_arg "Bytearray.blit_from_string"
   else unsafe_blit_from_string s i a j l
-
-let blit_to_string a i s j l =
-  if l < 0 || i < 0 || i > length a - l
-           || j < 0 || j > String.length s - l
-  then invalid_arg "Bytearray.blit_to_string"
-  else unsafe_blit_to_string a i s j l
 
 external marshal : 'a -> Marshal.extern_flags list -> t
   = "ml_marshal_to_bigarray"

@@ -43,9 +43,9 @@ let b4 ch =
 
 let uncompress sz inbuf =
   let zs = Zlib.inflate_init true in
-  let outbuf = String.create sz in
+  let outbuf = Bytes.create sz in
   let (finished, used_in, used_out) =
-    Zlib.inflate zs inbuf 0 (String.length inbuf) outbuf 0 sz Zlib.Z_SYNC_FLUSH
+    Zlib.inflate_string zs inbuf 0 (String.length inbuf) outbuf 0 sz Zlib.Z_SYNC_FLUSH
   in
   assert finished;
   assert (used_out = sz);
@@ -81,7 +81,7 @@ let parse_blob ch =
 
   let data = uncompress raw_size zlib_data in
 
-  (typ, data)
+  (typ, Bytes.unsafe_to_string data)
 
 (****)
 
@@ -429,16 +429,16 @@ let parse_primitive_block state data =
 (****)
 
 let perc_str f =
-  let s = "[                                       ]" in
+  let s = Bytes.of_string "[                                       ]" in
   let p = truncate (f *. 38.99) + 1 in
-  for i = 1 to p - 1 do s.[i] <- '=' done;
+  for i = 1 to p - 1 do Bytes.set s i '=' done;
   s.[p] <- '>';
-  for i = p + 1 to 39 do s.[i] <- ' ' done;
-  s
+  for i = p + 1 to 39 do Bytes.set s i ' ' done;
+  Bytes.to_string s
 
 let parse_primitive_block = Task.funct parse_primitive_block
 let close_state = Task.funct (fun state () -> close_state state)
-let fut = ref None 
+let fut = ref None
 let synchronize f =
   begin match !fut with
     Some f -> Task.wait f

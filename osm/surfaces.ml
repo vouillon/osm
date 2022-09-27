@@ -83,14 +83,14 @@ let resize_array size a =
     a := a'
   end
 
-let resize_string size s =
-  let l = String.length !s in
+let resize_bytes size s =
+  let l = Bytes.length !s in
   assert (l > 0);
   if l < size then begin
     let l' = ref l in
     while !l' < size do l' := 2 * !l' done;
-    let s' = String.make !l' !s.[0] in
-    String.blit !s 0 s' 0 l;
+    let s' = Bytes.make !l' (Bytes.get !s 0) in
+    Bytes.blit !s 0 s' 0 l;
     s := s'
   end
 
@@ -480,7 +480,7 @@ let open_rtree name ratio =
   let categories = ref (Array.make (leaf_size / 8) 0) in
   let layers = ref (Array.make (leaf_size / 8) 0) in
   let n = ref 0 in
-  let buf = ref (String.make (256 + leaf_size) '\000') in
+  let buf = ref (Bytes.make (256 + leaf_size) '\000') in
   let pos = ref 0 in
   let bbox = ref Bbox.empty in
   let last_lat = ref 0 in
@@ -501,7 +501,7 @@ Format.eprintf "%d %d %d@." len !n !pos;
     for i = 1 to len - 1 do
       Rtree.append st Bbox.empty
     done;
-    resize_string (len * leaf_size - !n * 4 - 4) buf;
+    resize_bytes (len * leaf_size - !n * 4 - 4) buf;
     output ch !buf 0 (len * leaf_size - !n * 4 - 4);
     n := 0;
     pos := 0;
@@ -519,7 +519,7 @@ let ch = open_out "/tmp/c" in
 	(fun pos (lat, lon) ->
 	   let pos = ref pos in
 	   for i = 0 to Array.length lat - 2 do
-             resize_string (!pos + 20) buf;
+             resize_bytes (!pos + 20) buf;
 	     pos := write_signed_varint !buf !pos (lat.(i) - !last_lat);
 (*
 Printf.fprintf ch "%d\n" (lat.(i) - !last_lat);

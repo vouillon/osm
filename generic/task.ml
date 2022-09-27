@@ -62,13 +62,13 @@ let functions = Hashtbl.create 17
 
 let send pipe i l =
   let s = Printf.sprintf "%d %d\n" i l in
-  ignore (Unix.write pipe s 0 (String.length s))
+  ignore (Unix.write_substring pipe s 0 (String.length s))
 
 let receive pipe =
-  let s = String.create 50 in
-  let len = Unix.read pipe s 0 (String.length s) in
+  let s = Bytes.create 50 in
+  let len = Unix.read pipe s 0 (Bytes.length s) in
   if len = 0 then exit 1;
-  Scanf.sscanf s "%d %d" (fun i l -> (i, l))
+  Scanf.sscanf (Bytes.unsafe_to_string s) "%d %d" (fun i l -> (i, l))
 
 let read mem l =
   let t = Utimer.start () in
@@ -114,15 +114,17 @@ let spawn f =
     let fd = Unix.openfile "/dev/zero" [Unix.O_RDWR] 0 in
     let mem =
       try
-        Bigarray.Array1.map_file
-          fd Bigarray.char Bigarray.c_layout true mem_size
+        Bigarray.array1_of_genarray
+             (Unix.map_file
+                fd Bigarray.char Bigarray.c_layout true [|mem_size|])
       with Sys_error _ ->
         (* Mac OS X does not support this, so we use a temp file instead. *)
         let (nm, ch) = Filename.open_temp_file "mmap" "" in
         Sys.remove nm;
         let mem =
-          Bigarray.Array1.map_file (Unix.descr_of_out_channel ch)
-            Bigarray.char Bigarray.c_layout true mem_size
+          Bigarray.array1_of_genarray
+             (Unix.map_file (Unix.descr_of_out_channel ch)
+                Bigarray.char Bigarray.c_layout true [|mem_size|])
         in
         close_out ch;
         mem

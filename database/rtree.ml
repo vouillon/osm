@@ -63,7 +63,7 @@ end
 
 type level =
   { mutable level_bbox : Bbox.t;
-    buffer : string;
+    buffer : bytes;
     file : (int32, Bigarray.int32_elt) Mapped_file.output_stream;
     mutable idx : int }
 

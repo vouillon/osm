@@ -5,7 +5,7 @@ This software only works on 64-bit machines.
 The following external libraries are needed: camlzip, cairo, lablgtk.
 They can be install through opam:
 
-   opam install camlzip cairo2 lablgtk
+   opam install camlzip cairo2-gtk
 
 To compile, just type 'make'.
 
@@ -102,9 +102,8 @@ to display the map:
 
 Optionally, you can include the coastline data:
 - download coastlines-split-4326.zip from
-  http://openstreetmapdata.com/data/coastlines
+  https://osmdata.openstreetmap.de/data/coastlines.html
   (shapefile format, containing linestrings in WGS84 projection)
-- unzip the file
 - build the coastline R-trees:
     ./coastline /path/to/coastlines-split-4326.zip
 
